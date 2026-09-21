@@ -7,8 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
-  <!-- Supabase JS Client -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #0b0e14;
@@ -265,17 +263,11 @@
   <script>
   // <![CDATA[
   const CONFIG = {
-    WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
-    DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC",
-    // Doplňte své Supabase URL a klíč pro plnou synchronizaci mezi uživateli:
-    SUPABASE_URL: "https://hrkqnwazirarvabzvtzb.supabase.co",
-    SUPABASE_ANON_KEY: "sb_secret_4biC3I17EOY-NQgEkOTVHw_SBbWV4Qh"
+    DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC"
   };
-
-  // Inicializace Supabase klienta
-  const supabaseClient = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_URL.startsWith('http')) 
-    ? supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) 
-    : null;
+  // Veškerá komunikace s databází jde výhradně přes backend (/api/...), který
+  // drží Supabase přihlašovací údaje jen na serveru a ověřuje oprávnění podle
+  // přihlášeného uživatele. Frontend už žádný Supabase klíč neobsahuje.
 
   const RANKS = [
     { key: 'rotmajster', name: 'Rotmajster', level: 1 },
@@ -392,21 +384,11 @@
     divisions: () => DB.divisions || [],
     
     async fetchIncidentsFromApi() {
-      if (supabaseClient) {
-        try {
-          const { data, error } = await supabaseClient.from('incidents').select('*');
-          if (!error && data) {
-            DB.incidents = data;
-            persist();
-            return;
-          }
-        } catch (e) {}
-      }
       try {
         const res = await fetch('/api/incidents');
         if (res.ok) {
           const apiIncidents = await res.json();
-          if (Array.isArray(apiIncidents) && apiIncidents.length > 0) {
+          if (Array.isArray(apiIncidents)) {
             DB.incidents = apiIncidents;
             persist();
           }
@@ -415,12 +397,6 @@
     },
 
     async saveIncidentApi(incData, isEdit = false) {
-      if (supabaseClient) {
-        try {
-          const { error } = await supabaseClient.from('incidents').upsert([incData]);
-          if (!error) return true;
-        } catch (e) {}
-      }
       try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
@@ -438,53 +414,29 @@
     },
 
     async deleteIncidentApi(id) {
-      if (supabaseClient) {
-        try {
-          const { error } = await supabaseClient.from('incidents').delete().eq('id', id);
-          if (!error) return true;
-        } catch (e) {}
-      }
       try {
         const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
-        if (res.ok) {
-          await Data.fetchIncidentsFromApi();
-          return true;
-        }
+        if (res.ok) return true;
       } catch(e) {}
       return false;
     },
 
+    // Číslo výjezdu, stav schválení, velitel a prémie za výjezd určuje server
+    // (viz api/index.js), aby je nešlo obejít úpravou dat v prohlížeči.
+    // Po uložení proto vždy načteme autoritativní stav z API.
     async saveIncident(inc) {
       const isNew = !DB.incidents.some(x => x.id === inc.id);
-      await Data.saveIncidentApi(inc, !isNew);
-      
-      const idx = DB.incidents.findIndex(x => x.id === inc.id);
-      if (idx >= 0) DB.incidents[idx] = inc;
-      else {
-        DB.incidents.unshift(inc);
-        if (inc.status === 'approved') {
-          const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
-          const uniqueInvolved = [...new Set(involvedIds)];
-          uniqueInvolved.forEach(mId => {
-            const member = Data.member(mId);
-            if (member) {
-              if (!member.weeklyBonuses) member.weeklyBonuses = {};
-              let bonus = 0;
-              if (inc.type === 'pozar') {
-                bonus = Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200;
-              } else {
-                bonus = Math.floor(Math.random() * (1300 - 1000 + 1)) + 1000;
-              }
-              member.weeklyBonuses[inc.id] = bonus;
-            }
-          });
-        }
+      const ok = await Data.saveIncidentApi(inc, !isNew);
+      if (!ok) {
+        const idx = DB.incidents.findIndex(x => x.id === inc.id);
+        if (idx >= 0) DB.incidents[idx] = inc;
+        else DB.incidents.unshift(inc);
+        persist();
       }
-      persist();
     },
     async deleteIncident(id) {
-      await Data.deleteIncidentApi(id);
-      DB.incidents = DB.incidents.filter(x => x.id !== id);
+      const ok = await Data.deleteIncidentApi(id);
+      if (ok) DB.incidents = DB.incidents.filter(x => x.id !== id);
       persist();
     },
     saveVehicle(v) {
@@ -514,17 +466,12 @@
       DB.announcements.unshift(a);
       persist();
     },
-    async saveMember(m) {
-      const idx = DB.members.findIndex(x => x.id === m.id);
-      if (idx >= 0) DB.members[idx] = m;
-      else DB.members.push(m);
-      persist();
-
-      // Uložení stavu služby a členů do Supabase, aby to viděli všichni
-      if (supabaseClient) {
-        try {
-          await supabaseClient.from('members').upsert([{
-            id: m.id,
+    async saveMemberApi(m) {
+      try {
+        const res = await fetch(`/api/members/${m.id}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
             name: m.name,
             rank: m.rank,
             number: m.number,
@@ -533,9 +480,20 @@
             duty_start: m.dutyStart,
             duties_history: m.dutiesHistory,
             weekly_bonuses: m.weeklyBonuses
-          }]);
-        } catch (e) {}
-      }
+          })
+        });
+        return res.ok;
+      } catch (e) { return false; }
+    },
+    async saveMember(m) {
+      const idx = DB.members.findIndex(x => x.id === m.id);
+      if (idx >= 0) DB.members[idx] = m;
+      else DB.members.push(m);
+      persist();
+
+      // Uložení stavu služby a členů přes backend, aby to viděli všichni
+      // (server ověří, jestli smí přihlášený uživatel tato pole měnit).
+      await Data.saveMemberApi(m);
     },
     deleteMember(id) {
       DB.members = DB.members.filter(x => x.id !== id);
@@ -651,21 +609,25 @@
   }
 
   setInterval(async () => {
-    // Pravidelná synchronizace stavu členů a služby ze Supabase pro všechny uživatele
-    if (supabaseClient) {
+    // Pravidelná synchronizace stavu členů a služby přes lehký API endpoint
+    // (bez volání Discord API), aby to viděli všichni přihlášení uživatelé.
+    if (state.user) {
       try {
-        const { data, error } = await supabaseClient.from('members').select('*');
-        if (!error && data && data.length > 0) {
-          data.forEach(dbm => {
-            const m = DB.members.find(x => x.id === dbm.id);
-            if (m) {
-              m.onDuty = dbm.on_duty;
-              m.dutyStart = dbm.duty_start;
-              m.dutiesHistory = dbm.duties_history || [];
-              m.weeklyBonuses = dbm.weekly_bonuses || {};
-            }
-          });
-          persist();
+        const res = await fetch('/api/members/status');
+        if (res.ok) {
+          const data = await res.json();
+          if (Array.isArray(data) && data.length > 0) {
+            data.forEach(dbm => {
+              const m = DB.members.find(x => x.id === dbm.id);
+              if (m) {
+                m.onDuty = dbm.on_duty;
+                m.dutyStart = dbm.duty_start;
+                m.dutiesHistory = dbm.duties_history || [];
+                m.weeklyBonuses = dbm.weekly_bonuses || {};
+              }
+            });
+            persist();
+          }
         }
       } catch(e) {}
     }
@@ -1385,6 +1347,7 @@
     if (act === 'logout') {
       state.user = null;
       sessionStorage.removeItem('logged_user');
+      try { await fetch('/api/auth/logout', { method: 'POST' }); } catch (e) {}
       window.location.hash = '';
       renderLogin();
     }
