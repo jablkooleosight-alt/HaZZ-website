@@ -982,19 +982,26 @@
     else el.innerHTML = viewDashboard();
   }
 
-  const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+  async function fetchDiscordMembers() {
+    try {
+        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        
+        const response = await fetch('/api/members', {
+            headers: {
+                'x-user-id': savedUser.id
+            }
+        });
 
-const response = await fetch('/api/members', {
-    headers: {
-        'x-user-id': savedUser.id
+        if (response.ok) {
+            const members = await response.json();
+            Data.syncMembers(members);
+        } else {
+            console.error('Nemáš oprávnění k zobrazení členů.');
+        }
+    } catch (e) {
+        console.error('Chyba při načítání členů:', e);
     }
-});
-
-if (!response.ok) {
-    alert('Nemáš oprávnění k zobrazení těchto dat!');
-    return;
 }
-
 const members = await response.json();
 
   async function renderApp() {
