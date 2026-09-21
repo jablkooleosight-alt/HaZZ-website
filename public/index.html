@@ -47,7 +47,7 @@
     h1, h2, h3 { font-family: var(--f-head); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }
     h1 { font-size: 2.1rem; }
     h2 { font-size: 1.35rem; }
-    h3 { font-size: 1.1rem; }
+    3 { font-size: 1.1rem; }
     .muted { color: var(--muted); }
 
     .app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
@@ -425,7 +425,7 @@
       await fetch('/api/duty-sync', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activeMembers })
+        body: JSON.stringify({ activeMembers, editMessage: true })
       });
     } catch (e) {
       console.error('Chyba aktualizace služby:', e);
@@ -1059,10 +1059,10 @@
 
   window.addEventListener('hashchange', () => {
     handleLoginSuccess();
-    const hash = window.location.hash.replace('#/', '');
-    if (hash && !hash.startsWith('login-success')) {
-      state.activeTab = hash;
-      localStorage.setItem('active_tab', hash);
+    const hash = window.location.hash;
+    if (hash && !hash.startsWith('#/login-success')) {
+      state.activeTab = hash.replace('#/', '');
+      localStorage.setItem('active_tab', state.activeTab);
     }
     renderApp();
   });
