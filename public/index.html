@@ -257,15 +257,48 @@
     guidelines: () => DB.guidelines || [],
     announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
+    
+    // Načítání výjezdů ze serveru (Supabase)
+    async fetchIncidentsFromApi() {
+      try {
+        const res = await fetch('/api/incidents');
+        if (res.ok) {
+          DB.incidents = await res.json();
+          persist();
+        }
+      } catch (e) { console.error('Chyba načítání výjezdů:', e); }
+    },
+
+    async saveIncidentApi(incData, isEdit = false) {
+      try {
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(incData)
+        });
+        if (res.ok) {
+          await Data.fetchIncidentsFromApi();
+        }
+      } catch(e) { console.error('Chyba ukládání výjezdu:', e); }
+    },
+
+    async deleteIncidentApi(id) {
+      try {
+        const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          await Data.fetchIncidentsFromApi();
+        }
+      } catch(e) { console.error('Chyba mazání výjezdu:', e); }
+    },
+
     saveIncident(inc) {
-      const idx = DB.incidents.findIndex(x => x.id === inc.id);
-      if (idx >= 0) DB.incidents[idx] = inc;
-      else DB.incidents.push(inc);
-      persist();
+      const isEdit = DB.incidents.some(x => x.id === inc.id);
+      Data.saveIncidentApi(inc, isEdit);
     },
     deleteIncident(id) {
-      DB.incidents = DB.incidents.filter(x => x.id !== id);
-      persist();
+      Data.deleteIncidentApi(id);
     },
     saveGuideline(g) {
       const idx = DB.guidelines.findIndex(x => x.id === g.id);
@@ -317,7 +350,7 @@
 
   const state = {
     user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
-    activeTab: 'dashboard',
+    activeTab: localStorage.getItem('active_tab') || 'dashboard',
     theme: localStorage.getItem('theme') || 'dark'
   };
 
@@ -402,7 +435,8 @@
 
   function viewDashboard() {
     const u = state.user;
-    const myIncidents = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+    const allIncidents = Data.incidents();
+    const myIncidents = allIncidents.filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
     let bonus = 0;
@@ -427,6 +461,17 @@
 
     const activeDutyMembers = Data.members().filter(m => m.onDuty);
 
+    // Dynamický výpočet výjezdů za posledních 7 a 30 dnů podle reálných dat
+    const nowTime = now.getTime();
+    const inc7Days = allIncidents.filter(i => {
+      const d = new Date(i.datetime).getTime();
+      return (nowTime - d) <= (7 * 24 * 60 * 60 * 1000);
+    });
+    const inc30Days = allIncidents.filter(i => {
+      const d = new Date(i.datetime).getTime();
+      return (nowTime - d) <= (30 * 24 * 60 * 60 * 1000);
+    });
+
     return `
     <div class="page-head">
       <div>
@@ -445,8 +490,8 @@
     </div>
 
     <div class="strip">
-      <div><div class="n">6</div><div class="l">výjezdů za 7 dní</div></div>
-      <div><div class="n">11</div><div class="l">výjezdů za 30 dní</div></div>
+      <div><div class="n">${inc7Days.length}</div><div class="l">výjezdů za 7 dní</div></div>
+      <div><div class="n">${inc30Days.length}</div><div class="l">výjezdů za 30 dní</div></div>
       <div><div class="n">${activeDutyMembers.length}</div><div class="l">členů ve službě</div></div>
       <div><div class="n">${approvedInc.length}</div><div class="l">tvých výjezdů celkem</div></div>
     </div>
@@ -634,6 +679,7 @@
     const u = state.user;
     if (!u) return renderLogin();
 
+    await Data.fetchIncidentsFromApi();
     await fetchDiscordMembers();
 
     const root = $('#root');
@@ -979,9 +1025,17 @@
   window.addEventListener('hashchange', () => {
     handleLoginSuccess();
     const hash = window.location.hash.replace('#/', '');
-    if (hash && !hash.startsWith('login-success')) state.activeTab = hash;
+    if (hash && !hash.startsWith('login-success')) {
+      state.activeTab = hash;
+      localStorage.setItem('active_tab', hash);
+    }
     renderApp();
   });
+
+  // Pokud je uživatel přihlášen, nastav počáteční hash podle uložené pozice
+  if (state.user && !window.location.hash) {
+    window.location.hash = `#/${state.activeTab}`;
+  }
 
   handleLoginSuccess();
   renderApp();
