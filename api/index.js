@@ -154,6 +154,26 @@ app.get('/api/members', async (req, res) => {
       };
     });
 
+    /**
+ * Endpoint pro smazání (vyhození) člena ze serveru.
+ * Je chráněný middlewarem requireLeadRole, takže mazat můžou jen lidé z vedení.
+ */
+app.delete('/api/members/:id', requireLeadRole, async (req, res) => {
+  const userId = req.params.id;
+
+  try {
+    // Zavoláme Discord API pro vyhození uživatele ze serveru (Kick)
+    await axios.delete(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
+      headers: { Authorization: `Bot ${BOT_TOKEN}` }
+    });
+
+    res.json({ success: true, message: 'Člen byl úspěšně odstraněn ze serveru.' });
+  } catch (err) {
+    console.error('Chyba při mazání člena:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Nelze odstranit člena z Discordu.' });
+  }
+});
+
     res.json(members);
   } catch (err) {
     console.error('Chyba při načítání členů:', err.response?.data || err.message);
