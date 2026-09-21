@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Inicializace Supabase klienta pomocí proměnných prostředí
+// Inicializace Supabase klienta
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -98,12 +98,10 @@ app.get('/api/auth/callback', async (req, res) => {
   }
 });
 
-// ==================== ČLENOVÉ (SUPABASE + DISCORD) ====================
+// ==================== ČLENOVÉ (DISCORD + SUPABASE) ====================
 
 app.get('/api/members', async (req, res) => {
   try {
-    // Můžeš načítat přímo z Discordu jako dřív, nebo z tabulky 'members' v Supabase. 
-    // Necháváme původní logiku načítání z Discordu, která vracela pole členů:
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
@@ -118,6 +116,7 @@ app.get('/api/members', async (req, res) => {
       }
       return {
         id: m.user.id,
+        discord_id: m.user.id,
         name: m.nick || m.user.global_name || m.user.username,
         rank: rank,
         number: m.user.id.slice(-3),
@@ -133,7 +132,7 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
-// Přidání člena nově přímo do Supabase databáze
+// Uložení člena do Supabase (odpovídá sloupcům z tvého obrázku)
 app.post('/api/members', async (req, res) => {
     try {
         const { data, error } = await supabase.from('members').insert([req.body]).select();
@@ -146,7 +145,6 @@ app.post('/api/members', async (req, res) => {
 
 // ==================== VÝJEZDY (SUPABASE) ====================
 
-// Získat všechny výjezdy ze Supabase
 app.get('/api/incidents', async (req, res) => {
     try {
         const { data, error } = await supabase.from('incidents').select('*').order('datetime', { ascending: false });
@@ -157,7 +155,6 @@ app.get('/api/incidents', async (req, res) => {
     }
 });
 
-// Vytvořit nový výjezd v Supabase
 app.post('/api/incidents', async (req, res) => {
     try {
         const { data, error } = await supabase.from('incidents').insert([req.body]).select();
@@ -168,7 +165,6 @@ app.post('/api/incidents', async (req, res) => {
     }
 });
 
-// Aktualizovat stav výjezdu v Supabase
 app.patch('/api/incidents/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -219,10 +215,9 @@ app.post('/api/duty-sync', async (req, res) => {
   }
 });
 
-// Spuštění serveru
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server běží na portu ${PORT}, Discord integrace a Supabase jsou aktivní.`);
+  console.log(`Server běží na portu ${PORT}, Discord a Supabase jsou připraveny.`);
 });
 
 module.exports = app;
