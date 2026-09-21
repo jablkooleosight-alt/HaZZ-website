@@ -143,12 +143,11 @@
   <script>
   // <![CDATA[
   // 1. INICIALIZACE SUPABASE - DOPLŇTE VLASTNÍ ÚDAJE Z DASHBOARDU
-  const SUPABASE_URL = "https://hrkqnwazirarvabzvtzb.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_publishable_v0WZX4ROclsfLZ9rx68aEA_-AahQNdl";
-  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SUPABASE_URL = "https://TVOJE_SUPABASE_URL.supabase.co";
+  const SUPABASE_ANON_KEY = "TVOJE_SUPABASE_ANON_KEY";
+  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
   const CONFIG = {
-    WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
     DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC"
   };
 
@@ -168,7 +167,6 @@
     { key: 'reditelstvi', name: 'Ředitelství', level: 13 }
   ];
 
-  const LEAD_LEVEL = 6;
   const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
 
   const TYPES = {
@@ -203,7 +201,7 @@
 
   // DISCORD LOGIN PRES SUPABASE
   async function loginWithDiscord() {
-    const { error } = await supabase.auth.signInWithOAuth({
+    const { error } = await supabaseClient.auth.signInWithOAuth({
       provider: 'discord',
       options: { redirectTo: window.location.origin }
     });
@@ -211,7 +209,7 @@
   }
 
   async function logout() {
-    await supabase.auth.signOut();
+    await supabaseClient.auth.signOut();
     state.user = null;
     renderApp();
   }
@@ -240,8 +238,8 @@
   }
 
   async function loadData() {
-    const { data: incs } = await supabase.from('incidents').select('*').order('datetime', { ascending: false });
-    const { data: gds } = await supabase.from('guidelines').select('*');
+    const { data: incs } = await supabaseClient.from('incidents').select('*').order('datetime', { ascending: false });
+    const { data: gds } = await supabaseClient.from('guidelines').select('*');
     state.incidents = incs || [];
     state.guidelines = gds || [];
   }
@@ -390,7 +388,7 @@
         author_id: state.user.id
       };
 
-      await supabase.from('incidents').insert([inc]);
+      await supabaseClient.from('incidents').insert([inc]);
       closeModal();
       toast('Výjezd uložen do Supabase.');
       renderApp();
@@ -399,7 +397,7 @@
 
   // KONTROLA RELACE SUPABASE PŘI NAČTENÍ
   async function initAuth() {
-    const { data: { session } } = await supabase.auth.getSession();
+    const { data: { session } } = await supabaseClient.auth.getSession();
     if (session) {
       const u = session.user;
       state.user = {
