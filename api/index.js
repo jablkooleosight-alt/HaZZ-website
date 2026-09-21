@@ -115,7 +115,7 @@ app.get('/api/members', async (req, res) => {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
 
-    // Zpracování a filtrování: Zobrazí se pouze ti, kteří mají některou z oficiálních hodností z ROLE_MAP
+    // Filtrování členů: Zobrazí se pouze ti, kteří mají oficiální hodnost z ROLE_MAP (vývojáři bez hodnosti se odfiltrují)
     const members = response.data
       .map(m => {
         let rank = null;
@@ -125,7 +125,6 @@ app.get('/api/members', async (req, res) => {
             break;
           }
         }
-        // Pokud uživatel nemá žádnou platnou hodnost z ROLE_MAP, vynecháme ho
         if (!rank) return null;
 
         return {
@@ -137,7 +136,7 @@ app.get('/api/members', async (req, res) => {
           avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
         };
       })
-      .filter(m => m !== null); // Odstraní null položky (uživatele bez platné hodnosti)
+      .filter(m => m !== null);
 
     res.json(members);
   } catch (err) {
@@ -200,7 +199,6 @@ app.patch('/api/incidents/:id', async (req, res) => {
     }
 });
 
-// Endpoint pro mazání výjezdů ze Supabase
 app.delete('/api/incidents/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -222,7 +220,7 @@ app.post('/api/duty-sync', async (req, res) => {
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
-  // Dynamický aktuální datum a čas v českém formátu
+  // Funkční datum a čas v českém formátu
   const currentDateTime = new Date().toLocaleString('cs-CZ', {
     dateStyle: 'short',
     timeStyle: 'medium'
