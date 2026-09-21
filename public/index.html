@@ -47,7 +47,6 @@
     h1, h2, h3 { font-family: var(--f-head); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }
     h1 { font-size: 2.1rem; }
     h2 { font-size: 1.35rem; }
-    3 { font-size: 1.1rem; }
     .muted { color: var(--muted); }
 
     .app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
@@ -59,7 +58,6 @@
     .brand span { font-size: 0.78rem; color: var(--muted); }
     .nav { display: flex; flex-direction: column; gap: 2px; }
     .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius); color: var(--muted); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; }
-    .nav a svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
     .nav a:hover { background: var(--panel-2); color: var(--text); }
     .nav a.on { background: var(--panel-2); color: var(--text); border-left-color: var(--red); }
     .nav .badge { margin-left: auto; background: var(--amber); color: #1a1200; font-size: 0.72rem; font-weight: 700; border-radius: 20px; padding: 0 7px; min-width: 20px; text-align: center; }
@@ -124,16 +122,16 @@
     .table-wrap { overflow-x: auto; }
     .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
 
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto; }
-    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; animation: pop 0.15s ease-out; }
-    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1; }
-    .modal-body { padding: 22px; }
-    .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(3px); }
+    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: pop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+    .modal-body { padding: 24px; }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--panel); position: sticky; bottom: 0; }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-grid .full { grid-column: 1 / -1; }
     .check-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: 170px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; background: var(--bg); }
     .check-box label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; color: var(--text); font-weight: 400; cursor: pointer; }
-    @keyframes pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+    @keyframes pop { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
 
     .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
     .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
@@ -217,17 +215,6 @@
     return `<span class="avatar" style="background:#8e44ad">${esc(initials(m ? m.name : ''))}</span>`;
   };
 
-  async function sendDiscordWebhook(url, payload) {
-    if (!url || url.includes("PRIDAJ_SVOJ") || url.trim() === "") return;
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (e) { console.error(e); }
-  }
-
   const STORE_KEY = 'hzs_rp_v2_data';
 
   function seed() {
@@ -239,7 +226,7 @@
       ],
       announcements: [],
       divisions: [],
-      monthlyResetDate: new Date().toISOString()
+      weeklyBonusReset: new Date().toISOString()
     };
   }
 
@@ -254,6 +241,21 @@
   const persist = () => {
     try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch (e) {}
   };
+
+  // Kontrola týdenního resetu prémií (od neděle do neděle, reset v pondělí 00:00)
+  function checkWeeklyBonusReset() {
+    const now = new Date();
+    const lastReset = new Date(DB.weeklyBonusReset || now);
+    
+    // Zjistit pondělí aktuálního týdne nebo porovnat, zda proběhl přechod do nového týdne (pondělí)
+    const dayOfWeek = now.getDay(); // 0 = neděle, 1 = pondělí...
+    if (dayOfWeek === 1 && (now - lastReset) > 7 * 24 * 3600 * 1000) {
+      DB.members.forEach(m => m.weeklyBonuses = {});
+      DB.weeklyBonusReset = now.toISOString();
+      persist();
+    }
+  }
+  checkWeeklyBonusReset();
 
   const Data = {
     members: () => DB.members || [],
@@ -273,7 +275,7 @@
             persist();
           }
         }
-      } catch (e) { console.log('API výjezdů nedostupné, používám lokální úložiště.'); }
+      } catch (e) {}
     },
 
     async saveIncidentApi(incData, isEdit = false) {
@@ -289,7 +291,7 @@
           await Data.fetchIncidentsFromApi();
           return true;
         }
-      } catch(e) { console.log('API ukládání výjezdu selhalo, ukládám lokálně.'); }
+      } catch(e) {}
       return false;
     },
 
@@ -300,15 +302,38 @@
           await Data.fetchIncidentsFromApi();
           return true;
         }
-      } catch(e) { console.log('API mazání výjezdu selhalo, mažu lokálně.'); }
+      } catch(e) {}
       return false;
     },
 
     async saveIncident(inc) {
-      const apiSuccess = await Data.saveIncidentApi(inc, DB.incidents.some(x => x.id === inc.id));
+      const isNew = !DB.incidents.some(x => x.id === inc.id);
+      await Data.saveIncidentApi(inc, !isNew);
+      
       const idx = DB.incidents.findIndex(x => x.id === inc.id);
       if (idx >= 0) DB.incidents[idx] = inc;
-      else DB.incidents.unshift(inc);
+      else {
+        DB.incidents.unshift(inc);
+        // Generování prémií při novém výjezdu
+        // Požár má větší šanci na vyšší prémie, ostatní méně
+        if (inc.memberIds) {
+          inc.memberIds.forEach(mId => {
+            const member = Data.member(mId);
+            if (member) {
+              if (!member.weeklyBonuses) member.weeklyBonuses = {};
+              let bonus = 0;
+              if (inc.type === 'pozar') {
+                // Požár: větší šance, částka mezi 1200 a 1500 €
+                bonus = Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200;
+              } else {
+                // Ostatní: menší šance/rozmezí 1000 až 1300 €
+                bonus = Math.floor(Math.random() * (1300 - 1000 + 1)) + 1000;
+              }
+              member.weeklyBonuses[inc.id] = bonus;
+            }
+          });
+        }
+      }
       persist();
     },
     async deleteIncident(id) {
@@ -354,13 +379,10 @@
           onDuty: existing ? existing.onDuty : false,
           dutyStart: existing ? existing.dutyStart : null,
           totalDutySeconds: existing ? existing.totalDutySeconds : 0,
-          dutiesHistory: existing ? (existing.dutiesHistory || []) : []
+          dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
+          weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
         };
       });
-      persist();
-    },
-    resetMonthlyStats() {
-      DB.monthlyResetDate = new Date().toISOString();
       persist();
     }
   };
@@ -368,8 +390,21 @@
   const state = {
     user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
     activeTab: localStorage.getItem('active_tab') || 'dashboard',
-    theme: localStorage.getItem('theme') || 'dark'
+    theme: localStorage.getItem('theme') || 'dark',
+    customColor: localStorage.getItem('custom_color') || '#e63b2e'
   };
+
+  // Aplikování uložené barvy
+  function applyThemeSettings() {
+    if (state.theme === 'light') {
+      document.body.classList.add('light-theme');
+    } else {
+      document.body.classList.remove('light-theme');
+    }
+    if (state.customColor) {
+      document.documentElement.style.setProperty('--red', state.customColor);
+    }
+  }
 
   const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
   const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
@@ -395,7 +430,7 @@
       const res = await fetch('/api/auth/url');
       const data = await res.json();
       loginUrl = data.url;
-    } catch(e) { console.error('Nelze načíst Auth URL', e); }
+    } catch(e) {}
 
     root.innerHTML = `
     <div class="login"><div class="login-card">
@@ -427,12 +462,9 @@
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ activeMembers, editMessage: true })
       });
-    } catch (e) {
-      console.error('Chyba aktualizace služby:', e);
-    }
+    } catch (e) {}
   }
 
-  // Live timer & real-time clock tick interval
   setInterval(() => {
     const now = new Date();
     const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
@@ -451,17 +483,14 @@
     const timerEl = $('#live-duty-timer');
     if (dbUser && dbUser.onDuty && dbUser.dutyStart) {
       const diffSec = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
-      const totalSec = diffSec;
-      const h = Math.floor(totalSec / 3600);
-      const m = Math.floor((totalSec % 3600) / 60);
-      const s = totalSec % 60;
+      const h = Math.floor(diffSec / 3600);
+      const m = Math.floor((diffSec % 3600) / 60);
+      const s = diffSec % 60;
       if (timerEl) {
         timerEl.textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
       }
     } else {
-      if (timerEl) {
-        timerEl.textContent = `0:00:00`;
-      }
+      if (timerEl) timerEl.textContent = `0:00:00`;
     }
   }, 1000);
 
@@ -471,38 +500,22 @@
     const myIncidents = allIncidents.filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
-    let bonus = 0;
-    approvedInc.forEach(i => {
-      if (i.commanderId === u.id) bonus += 1500;
-      else if (i.memberIds && i.memberIds.includes(u.id)) bonus += 1000;
-    });
-
     const dbUser = Data.member(u.id) || u;
     const activeSec = dbUser.onDuty && dbUser.dutyStart ? Math.floor((Date.now() - dbUser.dutyStart)/1000) : 0;
-    const totalSec = dbUser.onDuty ? activeSec : 0;
-    const h = Math.floor(totalSec / 3600);
-    const m = Math.floor((totalSec % 3600) / 60);
-    const s = totalSec % 60;
+    const h = Math.floor(activeSec / 3600);
+    const m = Math.floor((activeSec % 3600) / 60);
+    const s = activeSec % 60;
 
     const announcements = Data.announcements();
-
     const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
     const now = new Date();
     const dayName = daysOfWeek[now.getDay()];
-    const dateFormatted = `${now.getDate()}. ${now.getMonth()+1}.`;
     const initialRealTime = `${dayName} ${now.getDate()}. ${now.getMonth()+1}. ${now.getFullYear()} – ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
-
     const activeDutyMembers = Data.members().filter(m => m.onDuty);
 
     const nowTime = now.getTime();
-    const inc7Days = allIncidents.filter(i => {
-      const d = new Date(i.datetime).getTime();
-      return !isNaN(d) && (nowTime - d) <= (7 * 24 * 60 * 60 * 1000);
-    });
-    const inc30Days = allIncidents.filter(i => {
-      const d = new Date(i.datetime).getTime();
-      return !isNaN(d) && (nowTime - d) <= (30 * 24 * 60 * 60 * 1000);
-    });
+    const inc7Days = allIncidents.filter(i => !isNaN(new Date(i.datetime).getTime()) && (nowTime - new Date(i.datetime).getTime()) <= (7 * 24 * 60 * 60 * 1000));
+    const inc30Days = allIncidents.filter(i => !isNaN(new Date(i.datetime).getTime()) && (nowTime - new Date(i.datetime).getTime()) <= (30 * 24 * 60 * 60 * 1000));
 
     return `
     <div class="page-head">
@@ -512,12 +525,12 @@
       </div>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">Reálný čas a datum</div>
-          <div id="real-time-clock" style="font-family:var(--f-head); font-size:1.15rem; font-weight:600; line-height:1.2; color:var(--text);">${initialRealTime}</div>
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase;">Reálný čas</div>
+          <div id="real-time-clock" style="font-family:var(--f-head); font-size:1.15rem; font-weight:600;">${initialRealTime}</div>
         </div>
         <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">Čas ve službě</div>
-          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; line-height:1;">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase;">Čas ve službě</div>
+          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700;">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
         </div>
         <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
           ${dbUser.onDuty ? 'Ukončit službu' : 'Nastoupit do služby'}
@@ -650,7 +663,7 @@
       ${canManageMembers ? '<button class="btn primary" data-act="manual-add-member">+ Přidat člena manuálně</button>' : ''}
     </div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th> Odsloužené služby </th>${canManageMembers ? '<th>Akce</th>' : ''}</tr></thead>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Odsloužené služby</th>${canManageMembers ? '<th>Akce</th>' : ''}</tr></thead>
       <tbody>
         ${Data.members().map(m => `
           <tr>
@@ -658,7 +671,7 @@
             <td>${esc(rankOf(m.rank).name)}</td>
             <td>#${esc(m.number)}</td>
             <td>
-              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map(d => `<div style="font-size:0.8rem; color:var(--muted);">• ${d}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
+              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.8rem; color:var(--muted); display:flex; align-items:center; gap:6px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
             </td>
             ${canManageMembers ? `
               <td>
@@ -668,6 +681,35 @@
                 </div>
               </td>` : ''}
           </tr>`).join('')}
+      </tbody>
+    </table></div></div>`;
+  }
+
+  function viewBonuses() {
+    const members = Data.members();
+    return `
+    <div class="page-head">
+      <div><h1>Týdenní prémie členů</h1><p>Přehled od neděle do neděle (automatický reset v pondělí o půlnoci)</p></div>
+    </div>
+    <div class="panel"><div class="table-wrap"><table>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Záznamy prémií za tento týden</th><th>Celkem prémie</th></tr></thead>
+      <tbody>
+        ${members.map(m => {
+          const bonuses = m.weeklyBonuses || {};
+          const total = Object.values(bonuses).reduce((a, b) => a + b, 0);
+          return `
+            <tr>
+              <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
+              <td>${esc(rankOf(m.rank).name)}</td>
+              <td>
+                ${Object.keys(bonuses).length ? Object.entries(bonuses).map(([incId, amount]) => {
+                  const inc = Data.incidents().find(i => i.id === incId);
+                  return `<div style="font-size:0.85rem; color:var(--muted);">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b></div>`;
+                }).join('') : '<span class="muted">Zatím žádné prémie</span>'}
+              </td>
+              <td><b style="color:var(--green); font-size:1.1rem;">${total} €</b></td>
+            </tr>`;
+        }).join('')}
       </tbody>
     </table></div></div>`;
   }
@@ -697,6 +739,7 @@
     else if (v === 'incidents') el.innerHTML = viewIncidents();
     else if (v === 'guidelines') el.innerHTML = viewGuidelines();
     else if (v === 'members') el.innerHTML = viewMembers();
+    else if (v === 'bonuses' && isMajorOrHigher(state.user)) el.innerHTML = viewBonuses();
     else if (v === 'admin' && isLead(state.user)) el.innerHTML = viewAdmin();
     else el.innerHTML = viewDashboard();
   }
@@ -708,7 +751,7 @@
         const members = await res.json();
         Data.syncMembers(members);
       }
-    } catch (e) { console.log('API členů nedostupné, používám lokální úložiště.'); }
+    } catch (e) {}
   }
 
   async function renderApp() {
@@ -717,6 +760,7 @@
 
     await Data.fetchIncidentsFromApi();
     await fetchDiscordMembers();
+    applyThemeSettings();
 
     const root = $('#root');
     if (!root) return;
@@ -735,9 +779,14 @@
           <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
           <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
           <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
+          ${isMajorOrHigher(u) ? `<a href="#/bonuses" class="${state.activeTab === 'bonuses' ? 'on' : ''}">Prémie</a>` : ''}
           ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
         </nav>
         <div class="side-foot">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 0;">
+            <button class="btn sm" data-act="toggle-theme" title="Přepnout režim">${state.theme === 'dark' ? '☀️ Světlý' : '🌙 Tmavý'}</button>
+            <input type="color" id="color-picker" value="${state.customColor}" title="Vlastní barva" style="width:36px; height:32px; border:1px solid var(--line); border-radius:var(--radius); background:none; cursor:pointer;" />
+          </div>
           <div class="me">
             ${avatar(u)}
             <div>
@@ -886,17 +935,30 @@
           state.user = user;
           sessionStorage.setItem('logged_user', JSON.stringify(user));
           toast(`Vítej, ${user.name}!`);
-        } catch(e) { console.error(e); }
+        } catch(e) {}
       }
       window.location.hash = '#/dashboard';
     }
   }
+
+  document.addEventListener('input', e => {
+    if (e.target && e.target.id === 'color-picker') {
+      state.customColor = e.target.value;
+      localStorage.setItem('custom_color', state.customColor);
+      applyThemeSettings();
+    }
+  });
 
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act;
 
+    if (act === 'toggle-theme') {
+      state.theme = state.theme === 'dark' ? 'light' : 'dark';
+      localStorage.setItem('theme', state.theme);
+      renderApp();
+    }
     if (act === 'logout') {
       state.user = null;
       sessionStorage.removeItem('logged_user');
@@ -912,19 +974,16 @@
       } else {
         if (u.dutyStart) {
           const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
-          
           const durMin = Math.floor(diff / 60);
           const durSec = diff % 60;
           const dutyRecordStr = `${durMin}m ${durSec}s (${new Date().toLocaleDateString('cs-CZ')})`;
           if (!u.dutiesHistory) u.dutiesHistory = [];
           u.dutiesHistory.unshift(dutyRecordStr);
-
           u.dutyStart = null;
         }
         toast('Služba ukončena a uložena na profil.');
       }
       Data.saveMember(u);
-
       await syncDutyToDiscord();
       renderApp();
     }
@@ -963,6 +1022,17 @@
       if (confirm('Opravdu chcete tohoto člena odebrat?')) {
         Data.deleteMember(el.dataset.id);
         toast('Člen odebrán.');
+        renderApp();
+      }
+    }
+    if (act === 'delete-duty-history') {
+      const mId = el.dataset.memberId;
+      const dIdx = parseInt(el.dataset.dutyIdx, 10);
+      const m = Data.member(mId);
+      if (m && m.dutiesHistory) {
+        m.dutiesHistory.splice(dIdx, 1);
+        Data.saveMember(m);
+        toast('Záznam služby smazán.');
         renderApp();
       }
     }
@@ -1036,10 +1106,14 @@
       const rank = $('#m-rank')?.value;
       if (!name || !number) return toast('Vyplň jméno i číslo.', true);
 
+      const existing = editId ? Data.member(editId) : null;
       const m = {
         id: editId || uid(),
         name, number, rank,
-        onDuty: false, totalDutySeconds: 0, dutiesHistory: []
+        onDuty: existing ? existing.onDuty : false,
+        totalDutySeconds: existing ? existing.totalDutySeconds : 0,
+        dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
+        weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
       };
       Data.saveMember(m);
       closeModal();
