@@ -404,7 +404,6 @@
       else {
         DB.incidents.unshift(inc);
         if (inc.status === 'approved') {
-          // Započítat bonusy pro velitele i spolúčastněné
           const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
           const uniqueInvolved = [...new Set(involvedIds)];
           uniqueInvolved.forEach(mId => {
@@ -592,7 +591,6 @@
   function viewDashboard() {
     const u = state.user;
     const allIncidents = Data.incidents();
-    // Zobrazí výjezdy, kde je uživatel buď velitel (autor/zapisovatel), nebo spolúčastněný
     const myIncidents = allIncidents.filter(i => isLead(u) || i.commanderId === u.id || (i.memberIds && i.memberIds.includes(u.id)));
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
@@ -711,7 +709,6 @@
     </div>`;
   }
 
-  // Nová sekce: Evidence výjezdů na konkrétní lidi (Statistika / Přehled osob)
   function viewMemberIncidentsStats() {
     const members = Data.members();
     const incidents = Data.incidents();
@@ -993,10 +990,9 @@
   function openNewIncidentModal(editInc = null) {
     closeModal();
     const members = Data.members();
-    // Pokud editujeme, vynecháme přihlášeného uživatele z checkboxů, abychom ho neopakovali (velitel se nastavuje automaticky)
     const otherMembers = members.filter(m => m.id !== (editInc ? editInc.commanderId : state.user.id));
 
-    html = `
+    const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
         <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
@@ -1054,7 +1050,6 @@
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
-  // Modální okno pro rozkliknutí výjezdů konkrétní osoby v evidenci
   function openMemberIncidentsModal(memberId) {
     closeModal();
     const member = Data.member(memberId);
@@ -1314,8 +1309,8 @@
         datetime: existingInc ? existingInc.datetime : new Date().toISOString(),
         type, location: loc,
         units: ['CAS 20'],
-        memberIds: selectedMembers, // Spolúčastnění členové
-        commanderId: existingInc ? existingInc.commanderId : state.user.id, // Zapisovatel je automaticky velitelem
+        memberIds: selectedMembers,
+        commanderId: existingInc ? existingInc.commanderId : state.user.id,
         description: desc,
         result: 'V řešení',
         status: userRankOk ? 'approved' : 'pending',
