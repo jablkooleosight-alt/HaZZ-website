@@ -267,10 +267,13 @@
       try {
         const res = await fetch('/api/incidents');
         if (res.ok) {
-          DB.incidents = await res.json();
-          persist();
+          const apiIncidents = await res.json();
+          if (Array.isArray(apiIncidents) && apiIncidents.length > 0) {
+            DB.incidents = apiIncidents;
+            persist();
+          }
         }
-      } catch (e) { console.error('Chyba načítání výjezdů:', e); }
+      } catch (e) { console.log('API výjezdů nedostupné, používám lokální úložiště.'); }
     },
 
     async saveIncidentApi(incData, isEdit = false) {
@@ -284,8 +287,10 @@
         });
         if (res.ok) {
           await Data.fetchIncidentsFromApi();
+          return true;
         }
-      } catch(e) { console.error('Chyba ukládání výjezdu:', e); }
+      } catch(e) { console.log('API ukládání výjezdu selhalo, ukládám lokálně.'); }
+      return false;
     },
 
     async deleteIncidentApi(id) {
@@ -293,16 +298,23 @@
         const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
         if (res.ok) {
           await Data.fetchIncidentsFromApi();
+          return true;
         }
-      } catch(e) { console.error('Chyba mazání výjezdu:', e); }
+      } catch(e) { console.log('API mazání výjezdu selhalo, mažu lokálně.'); }
+      return false;
     },
 
     async saveIncident(inc) {
-      const isEdit = DB.incidents.some(x => x.id === inc.id);
-      await Data.saveIncidentApi(inc, isEdit);
+      const apiSuccess = await Data.saveIncidentApi(inc, DB.incidents.some(x => x.id === inc.id));
+      const idx = DB.incidents.findIndex(x => x.id === inc.id);
+      if (idx >= 0) DB.incidents[idx] = inc;
+      else DB.incidents.unshift(inc);
+      persist();
     },
     async deleteIncident(id) {
       await Data.deleteIncidentApi(id);
+      DB.incidents = DB.incidents.filter(x => x.id !== id);
+      persist();
     },
     saveGuideline(g) {
       const idx = DB.guidelines.findIndex(x => x.id === g.id);
@@ -329,6 +341,7 @@
       persist();
     },
     syncMembers(discordMembers) {
+      if (!discordMembers || !discordMembers.length) return;
       DB.members = discordMembers.map(dm => {
         const existing = DB.members.find(m => m.id === dm.id);
         return {
@@ -438,7 +451,7 @@
     const timerEl = $('#live-duty-timer');
     if (dbUser && dbUser.onDuty && dbUser.dutyStart) {
       const diffSec = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
-      const totalSec = (dbUser.totalDutySeconds || 0) + diffSec;
+      const totalSec = diffSec;
       const h = Math.floor(totalSec / 3600);
       const m = Math.floor((totalSec % 3600) / 60);
       const s = totalSec % 60;
@@ -466,7 +479,7 @@
 
     const dbUser = Data.member(u.id) || u;
     const activeSec = dbUser.onDuty && dbUser.dutyStart ? Math.floor((Date.now() - dbUser.dutyStart)/1000) : 0;
-    const totalSec = dbUser.onDuty ? ((dbUser.totalDutySeconds || 0) + activeSec) : 0;
+    const totalSec = dbUser.onDuty ? activeSec : 0;
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
@@ -695,7 +708,7 @@
         const members = await res.json();
         Data.syncMembers(members);
       }
-    } catch (e) { console.error('Chyba synchronizace členů:', e); }
+    } catch (e) { console.log('API členů nedostupné, používám lokální úložiště.'); }
   }
 
   async function renderApp() {
@@ -899,7 +912,6 @@
       } else {
         if (u.dutyStart) {
           const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
-          u.totalDutySeconds = (u.totalDutySeconds || 0) + diff;
           
           const durMin = Math.floor(diff / 60);
           const durSec = diff % 60;
