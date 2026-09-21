@@ -82,6 +82,28 @@
     .btn.ok { color: var(--green); }
     .btn.sm { padding: 4px 10px; font-size: 0.85rem; }
 
+    /* Nová tlačítka pro schválení a zamítnutí v administraci výjezdů */
+    .btn-approve {
+      background: transparent;
+      color: var(--green);
+      border: 1px solid var(--green);
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-approve:hover {
+      background: #3a9167;
+      color: #fff;
+    }
+    .btn-reject {
+      background: transparent;
+      color: var(--red);
+      border: 1px solid var(--red);
+      transition: background 0.15s, color 0.15s;
+    }
+    .btn-reject:hover {
+      background: #b52c22;
+      color: #fff;
+    }
+
     .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
     .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 12px; }
     .panel-body { padding: 18px; }
@@ -761,9 +783,15 @@
       <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
       <ul class="inc-list">
         ${pending.map(i => `
-          <li class="inc">
-            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
-            <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
+          <li class="inc" style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+              <b>${esc(i.number)}</b> –${esc(i.location)} <br>
+              <small class="muted">Typ: ${TYPES[i.type]?.name \vert{}\vert{} i.type} \vert{} Popis:${esc(i.description)}</small>
+            </div>
+            <div style="display: flex; gap: 8px;">
+              <button class="btn sm btn-approve" data-act="approve-inc" data-id="${i.id}">Schválit</button>
+              <button class="btn sm btn-reject" data-act="reject-inc" data-id="${i.id}">Zamítnout</button>
+            </div>
           </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
       </ul>
     </div>`;
@@ -1238,6 +1266,13 @@
         toast('Výjezd schválen.');
         renderApp();
       }
+    }
+    if (act === 'reject-inc') {
+      openConfirmModal('Zamítnout výjezd', 'Opravdu chcete tento výjezd zamítnout a smazat?', async () => {
+        await Data.deleteIncident(el.dataset.id);
+        toast('Výjezd byl zamítnut a odstraněn.', true);
+        renderApp();
+      });
     }
   });
 
