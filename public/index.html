@@ -177,6 +177,7 @@
   const LEAD_LEVEL = 6;
   const INNER_LEAD_LEVEL = 9;
   const DIRECTOR_LEVEL = 10;
+  const MAJOR_LEVEL = 10;
 
   const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
 
@@ -187,6 +188,15 @@
     zachrana: { name: 'Záchrana osob', cls: 't-zachrana' },
     plany: { name: 'Planý poplach', cls: 't-plany' }
   };
+
+  const DIVISIONS = [
+    "Horská služba",
+    "chemicko-technická jednotka",
+    "vyšetřovatel příčin požáru",
+    "Urban search and rescue",
+    "jednotka krizové intervence",
+    "Akademie"
+  ];
 
   const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = sel => document.querySelector(sel);
@@ -222,6 +232,7 @@
       guidelines: [
         { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'Zásahy', date: new Date().toISOString() }
       ],
+      announcements: [],
       divisions: [],
       monthlyResetDate: new Date().toISOString()
     };
@@ -244,11 +255,30 @@
     member: id => DB.members.find(m => m.id === id) || null,
     incidents: () => DB.incidents || [],
     guidelines: () => DB.guidelines || [],
+    announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
     saveIncident(inc) {
       const idx = DB.incidents.findIndex(x => x.id === inc.id);
       if (idx >= 0) DB.incidents[idx] = inc;
       else DB.incidents.push(inc);
+      persist();
+    },
+    deleteIncident(id) {
+      DB.incidents = DB.incidents.filter(x => x.id !== id);
+      persist();
+    },
+    saveGuideline(g) {
+      const idx = DB.guidelines.findIndex(x => x.id === g.id);
+      if (idx >= 0) DB.guidelines[idx] = g;
+      else DB.guidelines.push(g);
+      persist();
+    },
+    deleteGuideline(id) {
+      DB.guidelines = DB.guidelines.filter(x => x.id !== id);
+      persist();
+    },
+    saveAnnouncement(a) {
+      DB.announcements.unshift(a);
       persist();
     },
     saveMember(m) {
@@ -257,19 +287,24 @@
       else DB.members.push(m);
       persist();
     },
+    deleteMember(id) {
+      DB.members = DB.members.filter(x => x.id !== id);
+      persist();
+    },
     syncMembers(discordMembers) {
       DB.members = discordMembers.map(dm => {
         const existing = DB.members.find(m => m.id === dm.id);
         return {
           id: dm.id,
-          name: dm.name,
-          rank: dm.rank,
-          number: dm.number,
+          name: existing ? existing.name : dm.name,
+          rank: existing ? existing.rank : dm.rank,
+          number: existing ? existing.number : dm.number,
           avatar: dm.avatar,
           joined: dm.joined,
           onDuty: existing ? existing.onDuty : false,
           dutyStart: existing ? existing.dutyStart : null,
-          totalDutySeconds: existing ? existing.totalDutySeconds : 0
+          totalDutySeconds: existing ? existing.totalDutySeconds : 0,
+          dutiesHistory: existing ? (existing.dutiesHistory || []) : []
         };
       });
       persist();
@@ -289,6 +324,7 @@
   const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
   const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
   const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
+  const isMajorOrHigher = u => u && rankOf(u.rank).level >= MAJOR_LEVEL;
 
   function toast(msg, isErr = false) {
     const container = $('#toasts');
@@ -346,6 +382,24 @@
     }
   }
 
+  // Live timer tick interval
+  setInterval(() => {
+    const u = state.user;
+    if (!u) return;
+    const dbUser = Data.member(u.id);
+    if (dbUser && dbUser.onDuty && dbUser.dutyStart) {
+      const diffSec = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
+      const totalSec = (dbUser.totalDutySeconds || 0) + diffSec;
+      const h = Math.floor(totalSec / 3600);
+      const m = Math.floor((totalSec % 3600) / 60);
+      const s = totalSec % 60;
+      const timerEl = $('#live-duty-timer');
+      if (timerEl) {
+        timerEl.textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+    }
+  }, 1000);
+
   function viewDashboard() {
     const u = state.user;
     const myIncidents = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
@@ -358,94 +412,180 @@
     });
 
     const dbUser = Data.member(u.id) || u;
-    const totalMin = Math.floor((dbUser.totalDutySeconds || 0) / 60);
-    const hours = Math.floor(totalMin / 60) || 0;
-    const mins = (totalMin % 60) || 0;
+    const activeSec = dbUser.onDuty && dbUser.dutyStart ? Math.floor((Date.now() - dbUser.dutyStart)/1000) : 0;
+    const totalSec = (dbUser.totalDutySeconds || 0) + activeSec;
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+
+    const announcements = Data.announcements();
+
+    const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
+    const now = new Date();
+    const dayName = daysOfWeek[now.getDay()];
+    const dateFormatted = `${now.getDate()}. ${now.getMonth()+1}.`;
+
+    const activeDutyMembers = Data.members().filter(m => m.onDuty);
 
     return `
     <div class="page-head">
-      <div><h1>Vítej, ${esc(u.name)}</h1><p>Hodnost: ${esc(rankOf(u.rank).name)}</p></div>
       <div>
+        <h1>Dobrý den, ${esc(u.name)}</h1>
+        <p>${esc(rankOf(dbUser.rank || u.rank).name)} · číslo ${esc(dbUser.number || '000')}</p>
+      </div>
+      <div style="display:flex; align-items:center; gap:16px;">
+        <div style="text-align:right;">
+          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; line-height:1;">${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</div>
+          <div class="muted" style="font-size:0.8rem;">${dayName} ${dateFormatted}</div>
+        </div>
         <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
-          ${dbUser.onDuty ? 'Ukončit službu (Aktivní)' : 'Nastoupit do služby'}
+          ${dbUser.onDuty ? 'Ukončit službu' : 'Nastoupit do služby'}
         </button>
       </div>
     </div>
 
     <div class="strip">
-      <div><div class="n">${approvedInc.length}</div><div class="l">Moje výjezdy</div></div>
-      ${isDirector(u) ? `<div><div class="n">${bonus.toLocaleString()} €</div><div class="l">Moje Prémie za výjezdy</div></div>` : ''}
-      <div><div class="n">${hours}h ${mins}m</div><div class="l">Odsloužený čas</div></div>
+      <div><div class="n">6</div><div class="l">výjezdů za 7 dní</div></div>
+      <div><div class="n">11</div><div class="l">výjezdů za 30 dní</div></div>
+      <div><div class="n">${activeDutyMembers.length}</div><div class="l">členů ve službě</div></div>
+      <div><div class="n">${approvedInc.length}</div><div class="l">tvých výjezdů celkem</div></div>
     </div>
 
-    ${isInnerLead(u) ? `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>Statistika výjezdů za 30 dní (Užší Vedení)</h2>
-        <button class="btn sm danger" data-act="reset-stats">Resetovat měsíční statistiku</button>
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+      <div>
+        <div class="panel">
+          <div class="panel-head"><h2>Poslední výjezdy</h2>${isLead(u) ? '<button class="btn primary sm" data-act="new-incident">+ Zapsat výjezd</button>' : ''}</div>
+          <ul class="inc-list">
+            ${myIncidents.slice(0, 6).map(i => `
+              <li class="inc" data-act="open-incident-detail" data-id="${i.id}">
+                <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
+                <span><b>${esc(i.number)}</b> -${esc(TYPES[i.type] ? TYPES[i.type].name : i.type)}<br><small class="muted">${esc(i.location)}</small></span>
+                <span class="right">${fmtDT(i.datetime)}<br><small class="muted">vel. ${esc(Data.member(i.commanderId)?.name || 'Neznámý')}</small></span>
+              </li>`).join('') || '<li class="empty">Žádné výjezdy.</li>'}
+          </ul>
+        </div>
       </div>
-      <div class="panel-body">
-        <p class="muted">Od posledního resetu (${fmtDate(DB.monthlyResetDate || new Date())}) bylo zaznamenáno <b>${Data.incidents().length}</b> výjezdů.</p>
-      </div>
-    </div>` : ''}
+      <div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>Oznámení</h2>
+            ${isLead(u) ? '<button class="btn primary sm" data-act="new-announcement">+ Přidat</button>' : ''}
+          </div>
+          <div class="panel-body">
+            ${announcements.length ? announcements.map(a => `
+              <div style="margin-bottom:12px; border-bottom:1px solid var(--line); padding-bottom:8px;">
+                <b style="font-size:0.95rem;">${esc(a.title)}</b>
+                <p style="font-size:0.9rem; margin:4px 0;">${esc(a.content)}</p>
+                <div class="muted" style="font-size:0.75rem;">Přidal: ${esc(a.authorName)} (${fmtDT(a.createdAt)})</div>
+              </div>
+            `).join('') : '<p class="muted" style="text-align:center;">Žádná oznámení.</p>'}
+          </div>
+        </div>
 
-    <div class="panel">
-      <div class="panel-head"><h2>Poslední dostupné výjezdy</h2><button class="btn primary sm" data-act="new-incident">Zapsat výjezd</button></div>
-      <ul class="inc-list">
-        ${myIncidents.slice(0, 5).map(i => `
-          <li class="inc" data-act="open-incident" data-id="${i.id}">
-            <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
-            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
-            <span class="right">${fmtDT(i.datetime)}</span>
-          </li>`).join('') || '<li class="empty">Žádné dostupné výjezdy.</li>'}
-      </ul>
+        <div class="panel">
+          <div class="panel-head"><h2>Ve službě</h2></div>
+          <div class="panel-body" style="display:flex; flex-direction:column; gap:10px;">
+            ${activeDutyMembers.length ? activeDutyMembers.map(m => `
+              <div style="display:flex; align-items:center; gap:10px;">
+                ${avatar(m)}
+                <div>
+                  <div style="font-weight:600; font-size:0.9rem;">${esc(m.name)}</div>
+                  <div class="muted" style="font-size:0.75rem;">${esc(rankOf(m.rank).name)}</div>
+                </div>
+              </div>
+            `).join('') : '<p class="muted" style="text-align:center;">Nikdo není ve službě.</p>'}
+          </div>
+        </div>
+      </div>
     </div>`;
   }
 
   function viewIncidents() {
     const u = state.user;
-    const list = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+    const list = Data.incidents();
 
     return `
     <div class="page-head">
-      <div><h1>Výjezdy</h1><p>${isLead(u) ? 'Všechny výjezdy jednotky' : 'Moje výjezdy'}</p></div>
-      <button class="btn primary" data-act="new-incident">Zapsat výjezd</button>
+      <div><h1>Výjezdy pro vedení</h1><p>Správa a přehled všech výjezdů</p></div>
+      ${isLead(u) ? '<button class="btn primary" data-act="new-incident">Zapsat výjezd</button>' : ''}
     </div>
     <div class="panel">
-      <ul class="inc-list">
-        ${list.map(i => `
-          <li class="inc" data-act="open-incident" data-id="${i.id}">
-            <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
-            <span><b>${esc(i.number)}</b> (${TYPES[i.type] ? TYPES[i.type].name : ''}) - ${esc(i.location)}</span>
-            <span class="right">${i.status === 'pending' ? '<span class="tag pending">Čeká</span>' : '<span class="tag approved">Schváleno</span>'}</span>
-          </li>`).join('') || '<li class="empty">Žádné výjezdy.</li>'}
-      </ul>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th><th>Akce</th></tr></thead>
+        <tbody>
+          ${list.map(i => `
+            <tr>
+              <td><b>${esc(i.number)}</b></td>
+              <td>${esc(TYPES[i.type]?.name || i.type)}</td>
+              <td>${esc(i.location)}</td>
+              <td>${fmtDT(i.datetime)}</td>
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
+                  ${isLead(u) ? `
+                    <button class="btn sm" data-act="edit-incident" data-id="${i.id}">Upravit</button>
+                    <button class="btn sm danger" data-act="delete-incident" data-id="${i.id}">Smazat</button>
+                  ` : ''}
+                </div>
+              </td>
+            </tr>`).join('') || '<tr><td colspan="5" class="empty">Žádné výjezdy.</td></tr>'}
+        </tbody>
+      </table></div>
     </div>`;
   }
 
   function viewGuidelines() {
+    const u = state.user;
     return `
-    <div class="page-head"><div><h1>Směrnice &amp; Předpisy</h1></div></div>
+    <div class="page-head">
+      <div><h1>Směrnice &amp; Předpisy</h1></div>
+      ${isLead(u) ? '<button class="btn primary" data-act="new-guideline">+ Přidat směrnici</button>' : ''}
+    </div>
     <div class="stack">
       ${Data.guidelines().map(g => `
-        <div class="panel"><div class="panel-head"><h2>${esc(g.title)}</h2><span class="tag">${esc(g.category)}</span></div>
-        <div class="panel-body"><p>${esc(g.content)}</p></div></div>
+        <div class="panel">
+          <div class="panel-head">
+            <h2>${esc(g.title)}</h2>
+            <div style="display:flex; gap:10px; align-items:center;">
+              <span class="tag">${esc(g.category)}</span>${isLead(u) ? `
+                <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
+                <button class="btn sm danger" data-act="delete-guideline" data-id="${g.id}">Smazat</button>
+              ` : ''}
+            </div>
+          </div>
+          <div class="panel-body"><p>${esc(g.content)}</p></div>
+        </div>
       `).join('') || '<div class="empty">Žádné směrnice.</div>'}
     </div>`;
   }
 
   function viewMembers() {
+    const u = state.user;
+    const canManageMembers = isMajorOrHigher(u);
+
     return `
-    <div class="page-head"><div><h1>Seznam Členů z Discordu</h1></div></div>
+    <div class="page-head">
+      <div><h1>Seznam Členů z Discordu</h1><p>Správa členů a služebních čísel</p></div>
+      ${canManageMembers ? '<button class="btn primary" data-act="manual-add-member">+ Přidat člena manuálně</button>' : ''}
+    </div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Odslouženo</th></tr></thead>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th> Odsloužené služby </th>${canManageMembers ? '<th>Akce</th>' : ''}</tr></thead>
       <tbody>
         ${Data.members().map(m => `
           <tr>
             <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
             <td>${esc(rankOf(m.rank).name)}</td>
             <td>#${esc(m.number)}</td>
-            <td>${Math.floor((m.totalDutySeconds || 0) / 3600)} hod.</td>
+            <td>
+              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map(d => `<div style="font-size:0.8rem; color:var(--muted);">• ${d}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
+            </td>
+            ${canManageMembers ? `
+              <td>
+                <div style="display:flex; gap:6px;">
+                  <button class="btn sm" data-act="edit-member" data-id="${m.id}">Upravit</button>
+                  <button class="btn sm danger" data-act="delete-member" data-id="${m.id}">Smazat</button>
+                </div>
+              </td>` : ''}
           </tr>`).join('')}
       </tbody>
     </table></div></div>`;
@@ -533,30 +673,120 @@
 
   function closeModal() { $('#overlay')?.remove(); }
 
-  function openNewIncidentModal() {
+  function openNewIncidentModal(editInc = null) {
     closeModal();
     const members = Data.members();
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>Zapsat nový výjezd</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close">✕</button></div>
         <div class="modal-body">
           <form id="inc-form" class="form-grid">
-            <div class="field"><label>Místo zásahu</label><input type="text" id="i-loc" required /></div>
+            <div class="field"><label>Místo zásahu</label><input type="text" id="i-loc" value="${editInc ? esc(editInc.location) : ''}" required /></div>
             <div class="field"><label>Typ události</label>
-              <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</select>
+              <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${editInc && editInc.type === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select>
             </div>
             <div class="field full"><label>Zasahující členové z Discordu</label>
               <div class="check-box">
-                ${members.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" /> ${esc(m.name)}</label>`).join('')}
+                ${members.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" ${editInc && editInc.memberIds && editInc.memberIds.includes(m.id) ? 'checked' : ''} />${esc(m.name)}</label>`).join('')}
               </div>
             </div>
-            <div class="field full"><label>Popis</label><textarea id="i-desc" required></textarea></div>
+            <div class="field full"><label>Popis</label><textarea id="i-desc" required>${editInc ? esc(editInc.description) : ''}</textarea></div>
           </form>
         </div>
         <div class="modal-foot">
           <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-inc">Uložit a Odeslat</button>
+          <button class="btn primary" data-act="submit-inc" data-id="${editInc ? editInc.id : ''}">Uložit</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function openIncidentDetailModal(id) {
+    closeModal();
+    const inc = Data.incidents().find(i => i.id === id);
+    if (!inc) return;
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>Detail výjezdu: ${esc(inc.number)}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+          <div><b>Typ:</b> ${TYPES[inc.type]?.name || inc.type}</div>
+          <div><b>Místo:</b> ${esc(inc.location)}</div>
+          <div><b>Datum:</b> ${fmtDT(inc.datetime)}</div>
+          <div><b>Velitel zásahu:</b> ${esc(Data.member(inc.commanderId)?.name || 'Neznámý')}</div>
+          <div><b>Popis:</b><p style="background:var(--bg); padding:10px; border-radius:var(--radius); margin-top:4px;">${esc(inc.description)}</p></div>
+        </div>
+        <div class="modal-foot"><button class="btn primary" data-act="close">Zavřít</button></div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function openGuidelineModal(editG = null) {
+    closeModal();
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>${editG ? 'Upravit směrnici' : 'Přidat novou směrnici'}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-body">
+          <form class="form-grid">
+            <div class="field full"><label>Název směrnice</label><input type="text" id="g-title" value="${editG ? esc(editG.title) : ''}" required /></div>
+            <div class="field full"><label>Divize / Kategorie</label>
+              <select id="g-cat">${DIVISIONS.map(d => `<option value="${d}" ${editG && editG.category === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
+            </div>
+            <div class="field full"><label>Obsah směrnice</label><textarea id="g-content" required>${editG ? esc(editG.content) : ''}</textarea></div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" data-act="close">Zrušit</button>
+          <button class="btn primary" data-act="submit-guideline" data-id="${editG ? editG.id : ''}">Uložit</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function openAnnouncementModal() {
+    closeModal();
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>Přidat oznámení</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-body">
+          <form class="form-grid">
+            <div class="field full"><label>Nadpis</label><input type="text" id="a-title" required /></div>
+            <div class="field full"><label>Text oznámení</label><textarea id="a-content" required></textarea></div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" data-act="close">Zrušit</button>
+          <button class="btn primary" data-act="submit-announcement">Publikovat</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  function openMemberModal(editM = null) {
+    closeModal();
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>${editM ? 'Upravit člena' : 'Přidat člena manuálně'}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-body">
+          <form class="form-grid">
+            <div class="field"><label>Jméno a příjmení</label><input type="text" id="m-name" value="${editM ? esc(editM.name) : ''}" required /></div>
+            <div class="field"><label>Služební číslo</label><input type="text" id="m-num" value="${editM ? esc(editM.number) : ''}" required /></div>
+            <div class="field full"><label>Hodnost</label>
+              <select id="m-rank">${RANKS.map(r => `<option value="${r.key}" ${editM && editM.rank === r.key ? 'selected' : ''}>${r.name}</option>`).join('')}</select>
+            </div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" data-act="close">Zrušit</button>
+          <button class="btn primary" data-act="submit-member" data-id="${editM ? editM.id : ''}">Uložit</button>
         </div>
       </div>
     </div>`;
@@ -601,9 +831,16 @@
         if (u.dutyStart) {
           const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
           u.totalDutySeconds = (u.totalDutySeconds || 0) + diff;
+          
+          const durMin = Math.floor(diff / 60);
+          const durSec = diff % 60;
+          const dutyRecordStr = `${durMin}m ${durSec}s (${new Date().toLocaleDateString('cs-CZ')})`;
+          if (!u.dutiesHistory) u.dutiesHistory = [];
+          u.dutiesHistory.unshift(dutyRecordStr);
+
           u.dutyStart = null;
         }
-        toast('Služba ukončena.');
+        toast('Služba ukončena a uložena na profil.');
       }
       Data.saveMember(u);
 
@@ -611,8 +848,46 @@
       renderApp();
     }
     if (act === 'new-incident') openNewIncidentModal();
+    if (act === 'open-incident-detail') openIncidentDetailModal(el.dataset.id);
+    if (act === 'edit-incident') {
+      const inc = Data.incidents().find(x => x.id === el.dataset.id);
+      if (inc) openNewIncidentModal(inc);
+    }
+    if (act === 'delete-incident') {
+      if (confirm('Opravdu smazat tento výjezd?')) {
+        Data.deleteIncident(el.dataset.id);
+        toast('Výjezd smazán.');
+        renderApp();
+      }
+    }
+    if (act === 'new-guideline') openGuidelineModal();
+    if (act === 'edit-guideline') {
+      const g = Data.guidelines().find(x => x.id === el.dataset.id);
+      if (g) openGuidelineModal(g);
+    }
+    if (act === 'delete-guideline') {
+      if (confirm('Smazat směrnici?')) {
+        Data.deleteGuideline(el.dataset.id);
+        toast('Směrnice smazána.');
+        renderApp();
+      }
+    }
+    if (act === 'new-announcement') openAnnouncementModal();
+    if (act === 'manual-add-member') openMemberModal();
+    if (act === 'edit-member') {
+      const m = Data.member(el.dataset.id);
+      if (m) openMemberModal(m);
+    }
+    if (act === 'delete-member') {
+      if (confirm('Opravdu chcete tohoto člena odebrat?')) {
+        Data.deleteMember(el.dataset.id);
+        toast('Člen odebrán.');
+        renderApp();
+      }
+    }
     if (act === 'close') closeModal();
     if (act === 'submit-inc') {
+      const editId = el.dataset.id;
       const loc = $('#i-loc')?.value;
       const desc = $('#i-desc')?.value;
       const type = $('#i-type')?.value;
@@ -620,10 +895,11 @@
 
       if (!loc || !desc) return toast('Vyplň všechna pole.', true);
 
+      const existingInc = editId ? Data.incidents().find(x => x.id === editId) : null;
       const inc = {
-        id: uid(),
-        number: `VYJ-2026-000${Data.incidents().length + 1}`,
-        datetime: new Date().toISOString(),
+        id: editId || uid(),
+        number: existingInc ? existingInc.number : `VYJ-2026-000${Data.incidents().length + 1}`,
+        datetime: existingInc ? existingInc.datetime : new Date().toISOString(),
         type, location: loc,
         units: ['CAS 20'],
         memberIds: selectedMembers.length ? selectedMembers : [state.user.id],
@@ -636,20 +912,57 @@
 
       Data.saveIncident(inc);
       closeModal();
+      toast('Výjezd úspěšně uložen.');
+      renderApp();
+    }
+    if (act === 'submit-guideline') {
+      const editId = el.dataset.id;
+      const title = $('#g-title')?.value;
+      const category = $('#g-cat')?.value;
+      const content = $('#g-content')?.value;
+      if (!title || !content) return toast('Vyplň všechna pole.', true);
 
-      if (inc.status === 'pending') {
-        sendDiscordWebhook(CONFIG.WEBHOOK_INCIDENTS_PENDING, {
-          embeds: [{
-            title: '🚨 Nový výjezd ke schválení!',
-            description: `**Číslo:** ${inc.number}\n**Místo:** ${inc.location}\n**Zapsal:** ${state.user.name}`,
-            color: 15844367
-          }]
-        });
-        toast('Výjezd uložen a odebrán ke schválení.');
-      } else {
-        toast('Výjezd uložen.');
-      }
+      const g = {
+        id: editId || uid(),
+        title, category, content,
+        date: new Date().toISOString()
+      };
+      Data.saveGuideline(g);
+      closeModal();
+      toast('Směrnice uložena.');
+      renderApp();
+    }
+    if (act === 'submit-announcement') {
+      const title = $('#a-title')?.value;
+      const content = $('#a-content')?.value;
+      if (!title || !content) return toast('Vyplň všechna pole.', true);
 
+      const a = {
+        id: uid(),
+        title, content,
+        authorName: state.user.name,
+        createdAt: new Date().toISOString()
+      };
+      Data.saveAnnouncement(a);
+      closeModal();
+      toast('Oznámení publikováno.');
+      renderApp();
+    }
+    if (act === 'submit-member') {
+      const editId = el.dataset.id;
+      const name = $('#m-name')?.value;
+      const number = $('#m-num')?.value;
+      const rank = $('#m-rank')?.value;
+      if (!name || !number) return toast('Vyplň jméno i číslo.', true);
+
+      const m = {
+        id: editId || uid(),
+        name, number, rank,
+        onDuty: false, totalDutySeconds: 0, dutiesHistory: []
+      };
+      Data.saveMember(m);
+      closeModal();
+      toast('Člen uložen.');
       renderApp();
     }
     if (act === 'approve-inc') {
