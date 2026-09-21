@@ -1,17 +1,15 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const { createClient } = require('@supabase/supabase-js');
-require('dotenv').config();
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// Inicializace Supabase klienta pomocí proměnných prostředí
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
+// Povolení CORS s credentials, aby fungovaly session/cookies mezi klientem a serverem
+app.use(cors({
+  origin: true, // nebo specifikuj svou doménu
+  credentials: true
+}));
+app.use(express.json());
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -38,20 +36,9 @@ const ROLE_MAP = {
 
 let dutyMessageId = null;
 
-// ==================== DISCORD AUTENTIZACE ====================
-
 app.get('/api/auth/url', (req, res) => {
-  try {
-    if (!CLIENT_ID || !REDIRECT_URI) {
-      console.error("Chybí proměnné prostředí: CLIENT_ID nebo REDIRECT_URI");
-      return res.status(500).json({ error: 'Chybí konfigurace Discord CLIENT_ID nebo REDIRECT_URI na serveru.' });
-    }
-    const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
-    res.json({ url });
-  } catch (err) {
-    console.error('Chyba při generování Auth URL:', err.message);
-    res.status(500).json({ error: err.message });
-  }
+  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
+  res.json({ url });
 });
 
 app.get('/api/auth/callback', async (req, res) => {
@@ -80,10 +67,15 @@ app.get('/api/auth/callback', async (req, res) => {
     const memberData = memberRes.data;
     
     let userRank = 'rotmajster';
+    let isLead = false;
+
     if (memberData.roles) {
       for (const roleId of memberData.roles) {
         if (ROLE_MAP[roleId]) {
           userRank = ROLE_MAP[roleId];
+          if (roleId === "1547544440170741810") { // ID role ředitelství
+            isLead = true;
+          }
           break;
         }
       }
@@ -95,8 +87,13 @@ app.get('/api/auth/callback', async (req, res) => {
       avatar: memberData.user.avatar 
         ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
         : null,
-      rank: userRank
+      rank: userRank,
+      isLead: isLead,
+      roles: memberData.roles || []
     };
+
+    // Zde můžeš data uložit do session, pokud používáš express-session
+    // req.session.user = userData;
 
     const encodedUser = encodeURIComponent(JSON.stringify(userData));
     res.redirect(`/#/login-success?user=${encodedUser}`);
@@ -107,36 +104,63 @@ app.get('/api/auth/callback', async (req, res) => {
   }
 });
 
-// ==================== ČLENOVÉ (DISCORD + SUPABASE) ====================
+/**
+ * Bezpečnostní Middleware: Ověření, zda má uživatel práva vedení přímo přes Discord API nebo uložená data.
+ */
+async function requireLeadRole(req, res, next) {
+    try {
+        // Příklad ověření přes hlavičku nebo token, případně session. 
+        // Zde ověřujeme např. podle uživatelského ID poslaného v hlavičce nebo tokenu, 
+        // abychom se vyhnuli podvržení dat z frontendu.
+        const userId = req.headers['x-user-id']; 
+        if (!userId) {
+            return res.status(401).json({ error: 'Neautorizováno: Chybí identifikace uživatele.' });
+        }
 
-app.get('/api/members', async (req, res) => {
+        // Ověříme aktuální role uživatele přímo přes Discord Bot API (nejbezpečnější způsob)
+        const guildMemberRes = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
+            headers: { Authorization: `Bot ${BOT_TOKEN}` }
+        });
+
+        const memberRoles = guildMemberRes.data.roles || [];
+        // Zde zkontroluj, zda má uživatel ID role odpovídající vedení (např. "1547544440170741810")
+        const hasLeadRole = memberRoles.includes("1547544440170741810");
+
+        if (!hasLeadRole) {
+            return res.status(403).json({ error: 'Přístup odepřen: Nemáš oprávnění vedení.' });
+        }
+
+        next();
+    } catch (error) {
+        console.error('Chyba při ověřování oprávnění:', error.response?.data || error.message);
+        return res.status(500).json({ error: 'Chyba serveru při ověřování práv.' });
+    }
+}
+
+// Endpoint chráněný middlewarem requireLeadRole
+app.get('/api/members', requireLeadRole, async (req, res) => {
   try {
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
 
-    // Filtrování členů: Zobrazí se pouze ti, kteří mají oficiální hodnost z ROLE_MAP (vývojáři bez hodnosti se odfiltrují)
-    const members = response.data
-      .map(m => {
-        let rank = null;
-        for (const roleId of m.roles) {
-          if (ROLE_MAP[roleId]) {
-            rank = ROLE_MAP[roleId];
-            break;
-          }
+    const members = response.data.map(m => {
+      let rank = 'rotmajster';
+      for (const roleId of m.roles) {
+        if (ROLE_MAP[roleId]) {
+          rank = ROLE_MAP[roleId];
+          break;
         }
-        if (!rank) return null;
-
-        return {
-          id: m.user.id,
-          name: m.nick || m.user.global_name || m.user.username,
-          rank: rank,
-          number: m.user.id.slice(-3),
-          joined: m.joined_at,
-          avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
-        };
-      })
-      .filter(m => m !== null);
+      }
+      return {
+        id: m.user.id,
+        name: m.nick || m.user.global_name || m.user.username,
+        rank: rank,
+        number: m.user.id.slice(-3),
+        joined: m.joined_at,
+        avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
+      };
+    });
 
     res.json(members);
   } catch (err) {
@@ -144,73 +168,6 @@ app.get('/api/members', async (req, res) => {
     res.status(500).json({ error: 'Nelze načíst členy z Discordu.' });
   }
 });
-
-app.post('/api/members', async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('members').insert([req.body]).select();
-        if (error) throw error;
-        res.status(201).json(data[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/members/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { error } = await supabase.from('members').delete().eq('id', id);
-        if (error) throw error;
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ==================== VÝJEZDY (SUPABASE) ====================
-
-app.get('/api/incidents', async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('incidents').select('*').order('datetime', { ascending: false });
-        if (error) throw error;
-        res.json(data);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.post('/api/incidents', async (req, res) => {
-    try {
-        const { data, error } = await supabase.from('incidents').insert([req.body]).select();
-        if (error) throw error;
-        res.status(201).json(data[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.patch('/api/incidents/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { data, error } = await supabase.from('incidents').update(req.body).eq('id', id).select();
-        if (error) throw error;
-        res.json(data[0]);
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-app.delete('/api/incidents/:id', async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { error } = await supabase.from('incidents').delete().eq('id', id);
-        if (error) throw error;
-        res.json({ success: true });
-    } catch (err) {
-        res.status(500).json({ error: err.message });
-    }
-});
-
-// ==================== DISCORD DUTY SYNC ====================
 
 app.post('/api/duty-sync', async (req, res) => {
   const { activeMembers } = req.body;
@@ -220,18 +177,12 @@ app.post('/api/duty-sync', async (req, res) => {
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
-  // Funkční datum a čas v českém formátu
-  const currentDateTime = new Date().toLocaleString('cs-CZ', {
-    dateStyle: 'short',
-    timeStyle: 'medium'
-  });
-
   const embedPayload = {
     embeds: [{
       title: '📋 Aktuální seznam ve službě (HZS)',
       description: listText,
       color: activeMembers.length > 0 ? 3066993 : 15158332,
-      footer: { text: `Poslední aktualizace: ${currentDateTime}` }
+      footer: { text: `Poslední aktualizace: ${new Date().toLocaleTimeString('cs-CZ')}` }
     }]
   };
 
@@ -253,12 +204,6 @@ app.post('/api/duty-sync', async (req, res) => {
       res.status(500).json({ error: 'Chyba webhooku' });
     }
   }
-});
-
-// Spuštění serveru
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server běží na portu ${PORT}, Discord integrace a Supabase jsou aktivní.`);
 });
 
 module.exports = app;
