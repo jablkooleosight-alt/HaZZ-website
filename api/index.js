@@ -142,6 +142,12 @@ function requireSupabase(req, res, next) {
   next();
 }
 
+// Zaloguje chybu na server (aby byla vidět v runtime logách) a pošle ji i klientovi.
+function sendError(res, err, code = 500) {
+  console.error(err);
+  res.status(code).json({ error: err.message });
+}
+
 // Přidělí týdenní prémii zúčastněným členům za schválený výjezd.
 async function awardBonuses(incident) {
   if (!supabase) return;
@@ -172,8 +178,7 @@ app.get('/api/auth/url', (req, res) => {
     const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
     res.json({ url });
   } catch (err) {
-    console.error('Chyba při generování Auth URL:', err.message);
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -342,7 +347,7 @@ app.get('/api/members/status', requireAuth, requireSupabase, async (req, res) =>
     if (error) throw error;
     res.json(data);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    sendError(res, err);
   }
 });
 
@@ -352,7 +357,7 @@ app.post('/api/members', requireAuth, requireMinLevel(MAJOR_LEVEL), requireSupab
         if (error) throw error;
         res.status(201).json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -388,7 +393,7 @@ async function updateMember(req, res) {
         }
         res.json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 }
 
@@ -402,7 +407,7 @@ app.delete('/api/members/:id', requireAuth, requireMinLevel(MAJOR_LEVEL), requir
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -414,7 +419,7 @@ app.get('/api/incidents', requireAuth, requireSupabase, async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -446,7 +451,7 @@ app.post('/api/incidents', requireAuth, requireSupabase, async (req, res) => {
         if (created.status === 'approved') await awardBonuses(created);
         res.status(201).json(created);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -482,7 +487,7 @@ async function updateIncident(req, res) {
         }
         res.json(updated);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 }
 
@@ -505,7 +510,7 @@ app.delete('/api/incidents/:id', requireAuth, requireSupabase, async (req, res) 
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -517,7 +522,7 @@ app.get('/api/services', requireAuth, requireSupabase, async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -527,7 +532,7 @@ app.post('/api/services', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupab
         if (error) throw error;
         res.status(201).json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -538,7 +543,7 @@ app.put('/api/services/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requireSu
         if (error) throw error;
         res.json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -549,7 +554,7 @@ app.patch('/api/services/:id', requireAuth, requireMinLevel(LEAD_LEVEL), require
         if (error) throw error;
         res.json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -560,7 +565,7 @@ app.delete('/api/services/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requir
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -572,7 +577,7 @@ app.get('/api/guidelines', requireAuth, requireSupabase, async (req, res) => {
         if (error) throw error;
         res.json(data);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -582,7 +587,7 @@ app.post('/api/guidelines', requireAuth, requireMinLevel(LEAD_LEVEL), requireSup
         if (error) throw error;
         res.status(201).json(data[0]);
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
@@ -593,7 +598,7 @@ app.delete('/api/guidelines/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requ
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
-        res.status(500).json({ error: err.message });
+        sendError(res, err);
     }
 });
 
