@@ -150,6 +150,18 @@ app.post('/api/members', async (req, res) => {
     }
 });
 
+// Nový koncový bod pro mazání členů ze Supabase
+app.delete('/api/members/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('members').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ==================== VÝJEZDY (SUPABASE) ====================
 
 app.get('/api/incidents', async (req, res) => {
@@ -193,12 +205,18 @@ app.post('/api/duty-sync', async (req, res) => {
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
+  // Dynamický aktuální datum a čas (funkční, ne statický)
+  const currentDateTime = new Date().toLocaleString('cs-CZ', {
+    dateStyle: 'short',
+    timeStyle: 'medium'
+  });
+
   const embedPayload = {
     embeds: [{
       title: '📋 Aktuální seznam ve službě (HZS)',
       description: listText,
       color: activeMembers.length > 0 ? 3066993 : 15158332,
-      footer: { text: `Poslední aktualizace: ${new Date().toLocaleTimeString('cs-CZ')}` }
+      footer: { text: `Poslední aktualizace: ${currentDateTime}` }
     }]
   };
 
