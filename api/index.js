@@ -1,10 +1,17 @@
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
+const { createClient } = require('@supabase/supabase-js');
+require('dotenv').config();
 
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// Inicializace Supabase klienta pomocí proměnných prostředí
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
@@ -30,6 +37,8 @@ const ROLE_MAP = {
 };
 
 let dutyMessageId = null;
+
+// ==================== DISCORD AUTENTIZACE ====================
 
 app.get('/api/auth/url', (req, res) => {
   const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
@@ -89,8 +98,12 @@ app.get('/api/auth/callback', async (req, res) => {
   }
 });
 
+// ==================== ČLENOVÉ (SUPABASE + DISCORD) ====================
+
 app.get('/api/members', async (req, res) => {
   try {
+    // Můžeš načítat přímo z Discordu jako dřív, nebo z tabulky 'members' v Supabase. 
+    // Necháváme původní logiku načítání z Discordu, která vracela pole členů:
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
@@ -119,6 +132,55 @@ app.get('/api/members', async (req, res) => {
     res.status(500).json({ error: 'Nelze načíst členy z Discordu.' });
   }
 });
+
+// Přidání člena nově přímo do Supabase databáze
+app.post('/api/members', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('members').insert([req.body]).select();
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==================== VÝJEZDY (SUPABASE) ====================
+
+// Získat všechny výjezdy ze Supabase
+app.get('/api/incidents', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('incidents').select('*').order('datetime', { ascending: false });
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Vytvořit nový výjezd v Supabase
+app.post('/api/incidents', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('incidents').insert([req.body]).select();
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// Aktualizovat stav výjezdu v Supabase
+app.patch('/api/incidents/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('incidents').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==================== DISCORD DUTY SYNC ====================
 
 app.post('/api/duty-sync', async (req, res) => {
   const { activeMembers } = req.body;
@@ -155,6 +217,12 @@ app.post('/api/duty-sync', async (req, res) => {
       res.status(500).json({ error: 'Chyba webhooku' });
     }
   }
+});
+
+// Spuštění serveru
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server běží na portu ${PORT}, Discord integrace a Supabase jsou aktivní.`);
 });
 
 module.exports = app;
