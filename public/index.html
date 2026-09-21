@@ -610,7 +610,7 @@
                   <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
                   ${isLead(u) ? `
                     <button class="btn sm" data-act="edit-incident" data-id="${i.id}">Upravit</button>
-                    <button class="btn sm danger" data-act="delete-incident" data-id="${i.id}">Smazat</button>
+                    <button class="btn sm danger" data-act="confirm-delete-incident" data-id="${i.id}">Smazat</button>
                   ` : ''}
                 </div>
               </td>
@@ -635,7 +635,7 @@
             <div style="display:flex; gap:10px; align-items:center;">
               <span class="tag">${esc(g.category)}</span>${isLead(u) ? `
                 <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
-                <button class="btn sm danger" data-act="delete-guideline" data-id="${g.id}">Smazat</button>
+                <button class="btn sm danger" data-act="confirm-delete-guideline" data-id="${g.id}">Smazat</button>
               ` : ''}
             </div>
           </div>
@@ -663,13 +663,13 @@
             <td>${esc(rankOf(m.rank).name)}</td>
             <td>#${esc(m.number)}</td>
             <td>
-              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.8rem; color:var(--muted); display:flex; align-items:center; gap:6px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
+              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.8rem; color:var(--muted); display:flex; align-items:center; gap:6px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
             </td>
             ${canManageMembers ? `
               <td>
                 <div style="display:flex; gap:6px;">
                   <button class="btn sm" data-act="edit-member" data-id="${m.id}">Upravit</button>
-                  <button class="btn sm danger" data-act="delete-member" data-id="${m.id}">Smazat</button>
+                  <button class="btn sm danger" data-act="confirm-delete-member" data-id="${m.id}">Smazat</button>
                 </div>
               </td>` : ''}
           </tr>`).join('')}
@@ -802,6 +802,28 @@
   }
 
   function closeModal() { $('#overlay')?.remove(); }
+
+  function openConfirmModal(title, message, onConfirm) {
+    closeModal();
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal" style="width:min(420px, 100%);">
+        <div class="modal-head"><h2>${esc(title)}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-body">
+          <p style="font-size:1.05rem;">${esc(message)}</p>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" data-act="close">Zrušit</button>
+          <button class="btn primary" id="confirm-yes-btn">Potvrdit</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+    $('#confirm-yes-btn').onclick = () => {
+      closeModal();
+      onConfirm();
+    };
+  }
 
   function openNewIncidentModal(editInc = null) {
     closeModal();
@@ -951,7 +973,6 @@
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-act]');
     if (!el) {
-      // Zavření okénka s barvou při kliknutí mimo
       const popover = $('#color-picker-popover');
       if (popover && !e.target.closest('#color-picker-popover') && !e.target.closest('[data-act="toggle-color-picker"]')) {
         popover.style.display = 'none';
@@ -1013,24 +1034,24 @@
       const inc = Data.incidents().find(x => x.id === el.dataset.id);
       if (inc) openNewIncidentModal(inc);
     }
-    if (act === 'delete-incident') {
-      if (confirm('Opravdu smazat tento výjezd?')) {
+    if (act === 'confirm-delete-incident') {
+      openConfirmModal('Smazat výjezd', 'Opravdu smazat tento výjezd?', async () => {
         await Data.deleteIncident(el.dataset.id);
         toast('Výjezd smazán.');
         renderApp();
-      }
+      });
     }
     if (act === 'new-guideline') openGuidelineModal();
     if (act === 'edit-guideline') {
       const g = Data.guidelines().find(x => x.id === el.dataset.id);
       if (g) openGuidelineModal(g);
     }
-    if (act === 'delete-guideline') {
-      if (confirm('Smazat směrnici?')) {
+    if (act === 'confirm-delete-guideline') {
+      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', () => {
         Data.deleteGuideline(el.dataset.id);
         toast('Směrnice smazána.');
         renderApp();
-      }
+      });
     }
     if (act === 'new-announcement') openAnnouncementModal();
     if (act === 'manual-add-member') openMemberModal();
@@ -1038,23 +1059,25 @@
       const m = Data.member(el.dataset.id);
       if (m) openMemberModal(m);
     }
-    if (act === 'delete-member') {
-      if (confirm('Opravdu chcete tohoto člena odebrat?')) {
+    if (act === 'confirm-delete-member') {
+      openConfirmModal('Odebrat člena', 'Opravdu chcete tohoto člena odebrat?', () => {
         Data.deleteMember(el.dataset.id);
         toast('Člen odebrán.');
         renderApp();
-      }
+      });
     }
-    if (act === 'delete-duty-history') {
+    if (act === 'confirm-delete-duty-history') {
       const mId = el.dataset.memberId;
       const dIdx = parseInt(el.dataset.dutyIdx, 10);
-      const m = Data.member(mId);
-      if (m && m.dutiesHistory) {
-        m.dutiesHistory.splice(dIdx, 1);
-        Data.saveMember(m);
-        toast('Záznam služby smazán.');
-        renderApp();
-      }
+      openConfirmModal('Smazat záznam', 'Opravdu smazat tento záznam služby?', () => {
+        const m = Data.member(mId);
+        if (m && m.dutiesHistory) {
+          m.dutiesHistory.splice(dIdx, 1);
+          Data.saveMember(m);
+          toast('Záznam služby smazán.');
+          renderApp();
+        }
+      });
     }
     if (act === 'close') closeModal();
     if (act === 'submit-inc') {
@@ -1171,3 +1194,4 @@
   </script>
 </body>
 </html>
+```[cite: 3]
