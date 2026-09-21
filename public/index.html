@@ -6,7 +6,7 @@
   <title>HZS – Výjezdový a Informační systém</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&display=swap" rel="stylesheet">
   <!-- Supabase JS Client -->
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
@@ -832,22 +832,30 @@
       <div class="table-wrap"><table>
         <thead><tr><th>Název vozidla</th><th>Typ / Určení</th><th>Stav</th><th>Poznámka / Umístění</th>${isLead(u) ? '<th>Akce</th>' : ''}</tr></thead>
         <tbody>
-        
-vehicles.map(v => `
-  <tr>
-    <td><b>${esc(v.name)}</b></td>
-    <td>${esc(v.type)}</td>
-    <td>${statusBadge}</td>
-    <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
-      <td>
-        <div style="display:flex; gap:8px;">
-          <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
-          <button class="btn sm danger" data-act="confirm-delete" data-id="${v.id}">Smazat</button>
-        </div>
-      </td>
-    ` : '<td></td>'}
-  </tr>
-`).join('')
+          ${vehicles.map(v => {
+            let statusBadge = '';
+            if (v.status === 'funkčni') statusBadge = '<span class="tag approved">Funkční</span>';
+            else if (v.status === 'oprava') statusBadge = '<span class="tag pending">V opravě</span>';
+            else statusBadge = '<span class="tag" style="background:var(--red-dim);color:var(--red);border-color:rgba(240, 58, 47, 0.4);">Poškozené</span>';
+            return `
+          <tr>
+            <td><b>${esc(v.name)}</b></td>
+            <td>${esc(v.type)}</td>
+            <td>${statusBadge}</td>
+            <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
+              <td>
+                <div style="display:flex; gap:8px;">
+                  <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
+                  <button class="btn sm danger" data-act="confirm-delete-vehicle" data-id="${v.id}">Smazat</button>
+                </div>
+              </td>
+            ` : '<td></td>'}
+          </tr>`;
+          }).join('') || '<tr><td colspan="5" class="empty">Žádná vozidla v evidenci.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+  }
 
   function viewGuidelines() {
     const u = state.user;
@@ -893,7 +901,7 @@ vehicles.map(v => `
             <div class="panel-head" style="background:var(--panel-2);">
               <div style="display:flex; align-items:center; gap:12px;">
                 <span class="tag" style="background:var(--red-dim); color:var(--red); border-color:rgba(240, 58, 47, 0.3);">${esc(g.category || 'Obecné')}</span>
-                <h2>${esc(g.title)}</h2>
+              <h2>${esc(g.title)}</h2>
               </div>
               <div style="display:flex; gap:10px; align-items:center;">
                 <span class="muted" style="font-size:0.8rem;">${fmtDate(g.date)}</span>
