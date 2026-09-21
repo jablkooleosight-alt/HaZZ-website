@@ -20,10 +20,6 @@ const GUILD_ID = process.env.DISCORD_DISCORD_GUILD_ID || process.env.DISCORD_GUI
 const REDIRECT_URI = process.env.REDIRECT_URI;
 const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
 
-// Doplnění pro Supabase
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
-
 const ROLE_MAP = {
   "1547544440170741810": "reditelstvi",
   "1404448934050529290": "plk",
