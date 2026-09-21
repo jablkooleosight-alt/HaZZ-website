@@ -14,8 +14,6 @@ const REDIRECT_URI = process.env.REDIRECT_URI;
 const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
 
 const ROLE_MAP = {
-  // Nahraďte čísla v uvozovkách reálnými ID rolí z vašeho Discord serveru
-const ROLE_MAP = {
   "1547544440170741810": "reditelstvi",
   "1404448934050529290": "plk",
   "1404448934021300353": "pplk",    
