@@ -111,7 +111,6 @@ app.get('/api/auth/callback', async (req, res) => {
 
 app.get('/api/members', async (req, res) => {
   try {
-    // 1. Získání členů z Discordu (jako zdroj identit, jmen a hodností)
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
@@ -138,7 +137,6 @@ app.get('/api/members', async (req, res) => {
       })
       .filter(m => m !== null);
 
-    // 2. Načtení stavu služeb, odpracovaných časů a historie ze Supabase
     const { data: dbMembers, error: dbError } = await supabase.from('members').select('*');
     if (dbError) {
       console.error('Chyba při načítání dat členů ze Supabase:', dbError.message);
@@ -151,11 +149,9 @@ app.get('/api/members', async (req, res) => {
       });
     }
 
-    // 3. Spojení Discord identit s databázovými stavy služby, aby byly totožné pro všechny
     const mergedMembers = discordMembers.map(dm => {
       const stored = dbMap[dm.id] || {};
       
-      // Pokud uživatel v DB ještě není, automaticky ho do DB registrujeme, aby měl záznam
       if (!dbMap[dm.id]) {
         supabase.from('members').insert([{
           id: dm.id,
@@ -170,7 +166,7 @@ app.get('/api/members', async (req, res) => {
           duties_history: [],
           weekly_bonuses: []
         }]).then(({ error }) => {
-          if (error) console.error(`Chyba při automatickém vytvoření člena ${dm.name}:`, error.message);
+          if (error) console.error(`Chyba při vytvoření člena ${dm.name}:`, error.message);
         });
       }
 
@@ -204,11 +200,9 @@ app.post('/api/members', async (req, res) => {
 app.put('/api/members/:id', async (req, res) => {
     try {
         const { id } = req.params;
-        // Provedeme pokus o aktualizaci v Supabase
         const { data, error } = await supabase.from('members').update(req.body).eq('id', id).select();
         if (error) throw error;
         
-        // Pokud záznam v tabulce members neexistuje, vytvoříme ho (upsert logika)
         if (!data || data.length === 0) {
             const insertPayload = { id, ...req.body };
             const { data: insData, error: insError } = await supabase.from('members').insert([insertPayload]).select();
@@ -382,7 +376,6 @@ app.post('/api/duty-sync', async (req, res) => {
   }
 });
 
-// Spuštění serveru
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`Server běží na portu ${PORT}, Discord integrace a Supabase jsou aktivní.`);
