@@ -97,6 +97,7 @@
     .tag { display: inline-block; padding: 1px 9px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--line); color: var(--muted); }
     .tag.pending { color: var(--amber); border-color: #5a4520; background: var(--amber-dim); }
     .tag.approved { color: var(--green); border-color: #25523d; }
+    .tag.active { color: var(--green); border-color: #25523d; background: rgba(76, 183, 130, 0.1); }
 
     .inc-list { list-style: none; }
     .inc { display: grid; grid-template-columns: 5px 1fr auto; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
@@ -201,6 +202,13 @@
     }
     return `<span class="avatar" style="background:#8e44ad">${esc(initials(m ? m.name : ''))}</span>`;
   };
+
+  function formatTime(seconds) {
+    const hrs = Math.floor(seconds / 3600);
+    const mins = Math.floor((seconds % 3600) / 60);
+    const secs = seconds % 60;
+    return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
+  }
 
   async function sendDiscordWebhook(url, payload) {
     if (!url || url.includes("PRIDAJ_SVOJ") || url.trim() === "") return;
@@ -333,7 +341,11 @@
   async function syncDutyToDiscord() {
     const activeMembers = Data.members()
       .filter(m => m.onDuty)
-      .map(m => ({ name: m.name, rankName: rankOf(m.rank).name }));
+      .map(m => ({ 
+        name: m.name, 
+        rankName: rankOf(m.rank).name,
+        startedAt: m.dutyStart ? new Date(m.dutyStart).toISOString() : new Date().toISOString()
+      }));
 
     try {
       await fetch('/api/duty-sync', {
@@ -345,6 +357,18 @@
       console.error('Chyba aktualizace služby:', e);
     }
   }
+
+  // Interval pro živou časomíru služby
+  setInterval(() => {
+    const activeDutyTimer = $('#active-duty-timer');
+    if (activeDutyTimer && state.user) {
+      const dbUser = Data.member(state.user.id) || state.user;
+      if (dbUser.onDuty && dbUser.dutyStart) {
+        const elapsedSeconds = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
+        activeDutyTimer.textContent = formatTime(elapsedSeconds);
+      }
+    }
+  }, 1000);
 
   function viewDashboard() {
     const u = state.user;
@@ -362,6 +386,10 @@
     const hours = Math.floor(totalMin / 60) || 0;
     const mins = (totalMin % 60) || 0;
 
+    const currentDutyElapsed = (dbUser.onDuty && dbUser.dutyStart) 
+      ? formatTime(Math.floor((Date.now() - dbUser.dutyStart) / 1000)) 
+      : '00:00:00';
+
     return `
     <div class="page-head">
       <div><h1>Vítej, ${esc(u.name)}</h1><p>Hodnost: ${esc(rankOf(u.rank).name)}</p></div>
@@ -375,7 +403,11 @@
     <div class="strip">
       <div><div class="n">${approvedInc.length}</div><div class="l">Moje výjezdy</div></div>
       ${isDirector(u) ? `<div><div class="n">${bonus.toLocaleString()} €</div><div class="l">Moje Prémie za výjezdy</div></div>` : ''}
-      <div><div class="n">${hours}h ${mins}m</div><div class="l">Odsloužený čas</div></div>
+      <div>
+        <div class="n" id="active-duty-timer">${dbUser.onDuty ? currentDutyElapsed : '00:00:00'}</div>
+        <div class="l">${dbUser.onDuty ? 'Čas v aktuální službě' : 'Není ve službě'}</div>
+      </div>
+      <div><div class="n">${hours}h ${mins}m</div><div class="l">Odsloužený čas celkem</div></div>
     </div>
 
     ${isInnerLead(u) ? `
@@ -435,18 +467,20 @@
   }
 
   function viewMembers() {
+    const members = Data.members();
     return `
     <div class="page-head"><div><h1>Seznam Členů z Discordu</h1></div></div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Odslouženo</th></tr></thead>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Stav služby</th><th>Odslouženo celkem</th></tr></thead>
       <tbody>
-        ${Data.members().map(m => `
+        ${members.length ? members.map(m => `
           <tr>
             <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
             <td>${esc(rankOf(m.rank).name)}</td>
-            <td>#${esc(m.number)}</td>
+            <td>#${esc(m.number || m.id.slice(-3))}</td>
+            <td>${m.onDuty ? '<span class="tag active">Ve službě</span>' : '<span class="muted">Mimo službu</span>'}</td>
             <td>${Math.floor((m.totalDutySeconds || 0) / 3600)} hod.</td>
-          </tr>`).join('')}
+          </tr>`).join('') : '<tr><td colspan="5" class="empty">Načítání členů z Discordu...</td></tr>'}
       </tbody>
     </table></div></div>`;
   }
@@ -486,6 +520,7 @@
       if (res.ok) {
         const members = await res.json();
         Data.syncMembers(members);
+        if (state.activeTab === 'members') renderView();
       }
     } catch (e) { console.error('Chyba synchronizace členů:', e); }
   }
@@ -494,7 +529,7 @@
     const u = state.user;
     if (!u) return renderLogin();
 
-    await fetchDiscordMembers();
+    fetchDiscordMembers();
 
     const root = $('#root');
     if (!root) return;
