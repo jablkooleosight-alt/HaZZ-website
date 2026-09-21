@@ -107,15 +107,16 @@ app.get('/api/auth/callback', async (req, res) => {
   }
 });
 
-// ==================== ČLENOVÉ (DISCORD + SUPABASE) ====================
+// ==================== ČLENOVÉ (DISCORD + SUPABASE SYNC) ====================
 
 app.get('/api/members', async (req, res) => {
   try {
+    // 1. Získání členů z Discordu (jako zdroj identit a hodností)
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
 
-    const members = response.data
+    const discordMembers = response.data
       .map(m => {
         let rank = null;
         for (const roleId of m.roles) {
@@ -137,7 +138,33 @@ app.get('/api/members', async (req, res) => {
       })
       .filter(m => m !== null);
 
-    res.json(members);
+    // 2. Načtení stavu služeb a časů ze Supabase
+    const { data: dbMembers, error: dbError } = await supabase.from('members').select('*');
+    if (dbError) {
+      console.error('Chyba při načítání dat členů ze Supabase:', dbError.message);
+    }
+
+    const dbMap = {};
+    if (dbMembers) {
+      dbMembers.forEach(dm => {
+        dbMap[dm.id] = dm;
+      });
+    }
+
+    // 3. Spojení Discord identit s databázovými stavy služby
+    const mergedMembers = discordMembers.map(dm => {
+      const stored = dbMap[dm.id] || {};
+      return {
+        ...dm,
+        on_duty: stored.on_duty || false,
+        duty_start: stored.duty_start || null,
+        total_duty_seconds: stored.total_duty_seconds || 0,
+        duties_history: stored.duties_history || [],
+        weekly_bonuses: stored.weekly_bonuses || []
+      };
+    });
+
+    res.json(mergedMembers);
   } catch (err) {
     console.error('Chyba při načítání členů:', err.response?.data || err.message);
     res.status(500).json({ error: 'Nelze načíst členy z Discordu.' });
@@ -149,6 +176,41 @@ app.post('/api/members', async (req, res) => {
         const { data, error } = await supabase.from('members').insert([req.body]).select();
         if (error) throw error;
         res.status(201).json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/members/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('members').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            // Pokud záznam v DB ještě neexistuje, vytvoříme ho (upsert)
+            const insertPayload = { id, ...req.body };
+            const { data: insData, error: insError } = await supabase.from('members').insert([insertPayload]).select();
+            if (insError) throw insError;
+            return res.json(insData[0]);
+        }
+        res.json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/members/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('members').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        if (!data || data.length === 0) {
+            const insertPayload = { id, ...req.body };
+            const { data: insData, error: insError } = await supabase.from('members').insert([insertPayload]).select();
+            if (insError) throw insError;
+            return res.json(insData[0]);
+        }
+        res.json(data[0]);
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
@@ -259,8 +321,8 @@ app.post('/api/duty-sync', async (req, res) => {
   const { activeMembers } = req.body;
   if (!DUTY_WEBHOOK_URL) return res.status(400).json({ error: 'Není nastaven Webhook' });
 
-  let listText = activeMembers.length > 0 
-    ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
+  let listText = activeMembers && activeMembers.length > 0 
+    ? activeMembers.map(m => `• **${m.name}** (${m.rankName || m.rank})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
   const currentDateTime = new Date().toLocaleString('cs-CZ', {
@@ -272,7 +334,7 @@ app.post('/api/duty-sync', async (req, res) => {
     embeds: [{
       title: '📋 Aktuální seznam ve službě (HZS)',
       description: listText,
-      color: activeMembers.length > 0 ? 3066993 : 15158332,
+      color: activeMembers && activeMembers.length > 0 ? 3066993 : 15158332,
       footer: { text: `Poslední aktualizace: ${currentDateTime}` }
     }]
   };
