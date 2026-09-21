@@ -8,7 +8,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// Inicializace Supabase klienta
+// Inicializace Supabase klienta pomocí proměnných prostředí
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
@@ -41,8 +41,17 @@ let dutyMessageId = null;
 // ==================== DISCORD AUTENTIZACE ====================
 
 app.get('/api/auth/url', (req, res) => {
-  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
-  res.json({ url });
+  try {
+    if (!CLIENT_ID || !REDIRECT_URI) {
+      console.error("Chybí proměnné prostředí: CLIENT_ID nebo REDIRECT_URI");
+      return res.status(500).json({ error: 'Chybí konfigurace Discord CLIENT_ID nebo REDIRECT_URI na serveru.' });
+    }
+    const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
+    res.json({ url });
+  } catch (err) {
+    console.error('Chyba při generování Auth URL:', err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 app.get('/api/auth/callback', async (req, res) => {
@@ -116,7 +125,6 @@ app.get('/api/members', async (req, res) => {
       }
       return {
         id: m.user.id,
-        discord_id: m.user.id,
         name: m.nick || m.user.global_name || m.user.username,
         rank: rank,
         number: m.user.id.slice(-3),
@@ -132,7 +140,6 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
-// Uložení člena do Supabase (odpovídá sloupcům z tvého obrázku)
 app.post('/api/members', async (req, res) => {
     try {
         const { data, error } = await supabase.from('members').insert([req.body]).select();
@@ -215,9 +222,10 @@ app.post('/api/duty-sync', async (req, res) => {
   }
 });
 
+// Spuštění serveru
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Server běží na portu ${PORT}, Discord a Supabase jsou připraveny.`);
+  console.log(`Server běží na portu ${PORT}, Discord integrace a Supabase jsou aktivní.`);
 });
 
 module.exports = app;
