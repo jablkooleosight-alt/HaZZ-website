@@ -3,41 +3,39 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HZS System - Výjezdový Portál</title>
-  <!-- Tailwind CSS & FontAwesome Icons -->
+  <title>HZS System - Portál</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     @keyframes rankUpPulse {
-      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-      70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+      0% { transform: scale(0.98); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1.01); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
       100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
     .rank-up-effect {
-      animation: rankUpPulse 1.8s infinite ease-in-out;
+      animation: rankUpPulse 1.5s infinite ease-in-out;
       border: 2px solid #ef4444 !important;
     }
   </style>
 </head>
 <body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
 
-  <!-- Hasičská Navigace -->
-  <nav class="bg-red-950/90 border-b border-red-800/50 backdrop-blur sticky top-0 z-40 px-6 py-4 flex justify-between items-center shadow-xl">
+  <nav class="bg-red-950/80 border-b border-red-800/50 backdrop-blur sticky top-0 z-40 px-6 py-4 flex justify-between items-center shadow-lg">
     <div class="flex items-center space-x-3">
       <i class="fa-solid fa-fire-extinguisher text-red-500 text-2xl"></i>
       <span class="text-xl font-bold tracking-wider text-red-100">HZS PORTÁL</span>
     </div>
-    <div class="flex space-x-2 md:space-x-4">
-      <button onclick="switchTab('members')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-users mr-2"></i>Členové</button>
-      <button onclick="switchTab('oznameni')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-bullhorn mr-2"></i>Oznámení</button>
-      <button onclick="switchTab('smernice')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-book-archive mr-2"></i>Směrnice</button>
-      <button onclick="switchTab('vyjezdy')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-truck-medical mr-2"></i>Výjezdy</button>
+    <div class="flex space-x-4">
+      <button onclick="switchTab('members')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium"><i class="fa-solid fa-users mr-2"></i>Členové</button>
+      <button onclick="switchTab('oznameni')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium"><i class="fa-solid fa-bullhorn mr-2"></i>Oznámení</button>
+      <button onclick="switchTab('smernice')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium"><i class="fa-solid fa-book-archive mr-2"></i>Směrnice</button>
+      <button onclick="switchTab('vyjezdy')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium"><i class="fa-solid fa-truck-medical mr-2"></i>Výjezdy</button>
     </div>
   </nav>
 
   <main class="max-w-6xl mx-auto p-6">
 
-    <!-- SEKTOR 1: ČLENOVÉ (HODNOSTNĚ SEŘAZENÍ) -->
+    <!-- SEKTOR: ČLENOVÉ -->
     <section id="tab-members" class="tab-content">
       <h2 class="text-2xl font-bold mb-4 border-b border-gray-800 pb-2 flex items-center">
         <i class="fa-solid fa-user-shield text-red-500 mr-3"></i>Seznam Členů
@@ -47,49 +45,46 @@
       </div>
     </section>
 
-    <!-- SEKTOR 2: OZNÁMENÍ (ŘEDITELSTVÍ / VEDENÍ) -->
+    <!-- SEKTOR: OZNÁMENÍ -->
     <section id="tab-oznameni" class="tab-content hidden">
       <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
         <h2 class="text-2xl font-bold flex items-center">
           <i class="fa-solid fa-bullhorn text-red-500 mr-3"></i>Oficiální Oznámení
         </h2>
-        <button onclick="openModal('oznameni')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
-          <i class="fa-solid fa-plus mr-2"></i> Přidat Oznámení
+        <button onclick="openModal('oznameni')" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded flex items-center text-sm shadow">
+          <i class="fa-solid fa-plus mr-1"></i> Přidat Oznámení
         </button>
       </div>
-
       <div id="oznameni-list" class="space-y-4">
         <p class="text-gray-400">Načítání oznámení...</p>
       </div>
     </section>
 
-    <!-- SEKTOR 3: SMĚRNICE (DYNAMICKÉ KATEGORIE A SPRÁVA) -->
+    <!-- SEKTOR: SMĚRNICE -->
     <section id="tab-smernice" class="tab-content hidden">
       <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
         <h2 class="text-2xl font-bold flex items-center">
           <i class="fa-solid fa-file-contract text-red-500 mr-3"></i>Směrnice a Předpisy
         </h2>
-        <button onclick="openModal('smernice')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
-          <i class="fa-solid fa-plus mr-2"></i> Přidat Směrnici
+        <button onclick="openModal('smernice')" class="bg-red-600 hover:bg-red-500 text-white px-3 py-1.5 rounded flex items-center text-sm shadow">
+          <i class="fa-solid fa-plus mr-1"></i> Přidat Směrnici
         </button>
       </div>
-
-      <div id="smernice-categories" class="space-y-4">
+      <div id="smernice-list" class="space-y-4">
         <p class="text-gray-400">Načítání směrnic...</p>
       </div>
     </section>
 
-    <!-- SEKTOR 4: VÝJEZDY -->
+    <!-- SEKTOR: VÝJEZDY -->
     <section id="tab-vyjezdy" class="tab-content hidden">
       <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
         <h2 class="text-2xl font-bold flex items-center">
           <i class="fa-solid fa-truck-fire text-red-500 mr-3"></i>Evidence Výjezdů
         </h2>
-        <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
+        <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold">
           <i class="fa-solid fa-plus mr-2"></i> Nový Výjezd
         </button>
       </div>
-
       <div id="vyjezdy-list" class="space-y-4">
         <p class="text-gray-400">Načítání výjezdů...</p>
       </div>
@@ -101,58 +96,50 @@
   <div id="modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center hidden z-50 p-4">
     <div class="bg-gray-900 border border-red-800/60 rounded-xl p-6 w-full max-w-lg shadow-2xl relative">
       <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
-      
-      <h3 id="modal-title" class="text-xl font-bold mb-4 text-red-400 border-b border-gray-800 pb-2">Správa Záznamu</h3>
+      <h3 id="modal-title" class="text-xl font-bold mb-4 text-red-400 border-b border-gray-800 pb-2">Správa</h3>
       
       <form id="modal-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
         <input type="hidden" id="form-type" />
         <input type="hidden" id="form-id" />
 
-        <!-- Titulek / Název -->
         <div>
           <label class="block text-sm text-gray-400 mb-1">Název / Nadpis</label>
           <input type="text" id="input-title" required class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
         </div>
 
-        <!-- Kategorie (Pouze pro Směrnice) -->
         <div id="field-category" class="hidden">
-          <label class="block text-sm text-gray-400 mb-1">Kategorie (např. Všeobecné, PJ, Výcvik...)</label>
-          <input type="text" id="input-category" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none" placeholder="Zadejte název kategorie">
+          <label class="block text-sm text-gray-400 mb-1">Kategorie (např. Všeobecné, Směrnice PJ...)</label>
+          <input type="text" id="input-category" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
         </div>
 
-        <!-- Místo zásahu (Pouze pro Výjezdy) -->
+        <div id="field-author" class="hidden">
+          <label class="block text-sm text-gray-400 mb-1">Autor / Vydal</label>
+          <input type="text" id="input-author" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
+        </div>
+
         <div id="field-location" class="hidden">
           <label class="block text-sm text-gray-400 mb-1">Místo Zásahu</label>
           <input type="text" id="input-location" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
         </div>
 
-        <!-- Datum (Pouze pro Výjezdy) -->
         <div id="field-date" class="hidden">
           <label class="block text-sm text-gray-400 mb-1">Datum</label>
           <input type="date" id="input-date" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
         </div>
 
-        <!-- Autor / Priorita (Pouze pro Oznámení) -->
-        <div id="field-author" class="hidden">
-          <label class="block text-sm text-gray-400 mb-1">Vydal (Autor / Hodnost)</label>
-          <input type="text" id="input-author" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none" placeholder="např. Ředitelství HZS / plk. Novák">
-        </div>
-
-        <!-- Obsah / Text -->
         <div>
           <label class="block text-sm text-gray-400 mb-1">Obsah / Popis</label>
           <textarea id="input-content" rows="4" required class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none"></textarea>
         </div>
 
-        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-800">
+        <div class="flex justify-end space-x-3 pt-4">
           <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300">Zrušit</button>
-          <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-500 rounded text-white font-semibold shadow">Uložit Záznam</button>
+          <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-500 rounded text-white font-semibold">Uložit</button>
         </div>
       </form>
     </div>
   </div>
 
-  <!-- APLIKAČNÍ LOGIKA SCRIPT -->
   <script>
     let previousMembers = {};
 
@@ -170,7 +157,7 @@
       if (el) el.classList.toggle('hidden');
     }
 
-    // --- 1. ČLENOVÉ + EFEKT RANK UP ---
+    // ČLENOVÉ
     async function loadMembers() {
       try {
         const res = await fetch('/api?action=members');
@@ -187,11 +174,11 @@
           const card = document.createElement('div');
           card.className = `bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center space-x-4 transition ${isRankUp ? 'rank-up-effect' : ''}`;
           card.innerHTML = `
-            <img src="${m.avatar}" class="w-14 h-14 rounded-full border-2 border-red-600 object-cover">
+            <img src="${m.avatar}" class="w-14 h-14 rounded-full border-2 border-red-600">
             <div>
               <h4 class="font-bold text-lg text-white">${m.displayName}</h4>
               <p class="text-xs text-red-400 font-semibold uppercase tracking-wider">${m.roles.join(', ') || 'Bez hodnosti'}</p>
-              ${isRankUp ? '<span class="text-xs text-green-400 font-bold"><i class="fa-solid fa-arrow-up mr-1"></i> RANK UP!</span>' : ''}
+              ${isRankUp ? '<span class="text-xs text-green-400 font-bold"><i class="fa-solid fa-arrow-up"></i> RANK UP!</span>' : ''}
             </div>
           `;
           container.appendChild(card);
@@ -199,7 +186,7 @@
       } catch (err) { console.error(err); }
     }
 
-    // --- 2. OZNÁMENÍ ---
+    // OZNÁMENÍ
     async function loadOznameni() {
       try {
         const res = await fetch('/api?action=oznameni');
@@ -207,23 +194,18 @@
         const box = document.getElementById('oznameni-list');
         box.innerHTML = '';
 
-        if (!data || data.length === 0) {
-          box.innerHTML = '<p class="text-gray-500">Žádná oficiální oznámení.</p>';
-          return;
-        }
-
         data.forEach(o => {
           const card = document.createElement('div');
-          card.className = "bg-gray-900 border-l-4 border-red-600 p-5 rounded-r-lg shadow flex justify-between items-start";
+          card.className = "bg-gray-900 border border-gray-800 p-5 rounded-lg flex justify-between items-start shadow";
           card.innerHTML = `
             <div>
-              <div class="flex items-center space-x-3 mb-1">
+              <div class="flex items-center space-x-3">
+                <span class="bg-red-900/60 text-red-300 text-xs px-2.5 py-1 rounded border border-red-700">${o.author || 'Vedení'}</span>
                 <h4 class="text-lg font-bold text-white">${o.title}</h4>
-                <span class="text-xs bg-red-950 text-red-300 px-2 py-0.5 rounded border border-red-800">${o.author || 'Vedení HZS'}</span>
               </div>
-              <p class="text-sm text-gray-300 mt-2 whitespace-pre-line">${o.content}</p>
+              <p class="text-sm text-gray-300 mt-3 whitespace-pre-line">${o.content}</p>
             </div>
-            <div class="flex space-x-2 ml-4">
+            <div class="flex space-x-2">
               <button onclick='editItem("oznameni", ${JSON.stringify(o)})' class="p-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded"><i class="fa-solid fa-pen"></i></button>
               <button onclick="deleteItem('oznameni', '${o.id}')" class="p-2 bg-gray-800 hover:bg-gray-700 text-red-400 rounded"><i class="fa-solid fa-trash"></i></button>
             </div>
@@ -233,29 +215,23 @@
       } catch (e) { console.error(e); }
     }
 
-    // --- 3. SMĚRNICE (ROZDĚLENÍ DO KATEGORIÍ) ---
+    // SMĚRNICE (Rozbalovací kategroie)
     async function loadSmernice() {
       try {
         const res = await fetch('/api?action=smernice');
         const data = await res.json();
-        const box = document.getElementById('smernice-categories');
+        const box = document.getElementById('smernice-list');
         box.innerHTML = '';
 
-        if (!data || data.length === 0) {
-          box.innerHTML = '<p class="text-gray-500">Žádné směrnice nebyly nalezeny.</p>';
-          return;
-        }
-
-        // Seskupení směrnic podle kategorií
         const categories = {};
         data.forEach(item => {
-          const cat = item.category || 'Obecné Směrnice';
+          const cat = item.category || 'Všeobecné Směrnice';
           if (!categories[cat]) categories[cat] = [];
           categories[cat].push(item);
         });
 
         Object.keys(categories).forEach((catName, index) => {
-          const catId = `cat-box-${index}`;
+          const catId = `sm-cat-${index}`;
           const group = document.createElement('div');
           group.className = "bg-gray-900 border border-gray-800 rounded-lg p-5 shadow-md";
 
@@ -265,9 +241,9 @@
                 <h5 class="font-bold text-gray-200">${s.title}</h5>
                 <p class="text-gray-400 mt-1 whitespace-pre-line">${s.content}</p>
               </div>
-              <div class="flex space-x-2 ml-4">
-                <button onclick='editItem("smernice", ${JSON.stringify(s)})' class="p-1.5 text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pen"></i></button>
-                <button onclick="deleteItem('smernice', '${s.id}')" class="p-1.5 text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
+              <div class="flex space-x-2">
+                <button onclick='editItem("smernice", ${JSON.stringify(s)})' class="p-1 text-blue-400"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="deleteItem('smernice', '${s.id}')" class="p-1 text-red-400"><i class="fa-solid fa-trash"></i></button>
               </div>
             </div>
           `).join('');
@@ -278,14 +254,9 @@
                 <i class="fa-solid fa-folder text-red-500 text-xl"></i>
                 <h3 class="text-xl font-bold text-gray-200">${catName}</h3>
               </div>
-              <div class="flex items-center space-x-3">
-                <button onclick="event.stopPropagation(); openModal('smernice', '${catName}')" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded flex items-center shadow">
-                  <i class="fa-solid fa-plus mr-1"></i> Přidat do kategorie
-                </button>
-                <i class="fa-solid fa-chevron-down text-gray-400"></i>
-              </div>
+              <i class="fa-solid fa-chevron-down text-gray-400"></i>
             </div>
-            <div id="${catId}" class="mt-4 border-t border-gray-800 pt-2 space-y-2">
+            <div id="${catId}" class="mt-4 hidden border-t border-gray-800 pt-2 space-y-2">
               ${itemsHtml}
             </div>
           `;
@@ -294,7 +265,7 @@
       } catch (e) { console.error(e); }
     }
 
-    // --- 4. VÝJEZDY ---
+    // VÝJEZDY
     async function loadVyjezdy() {
       try {
         const res = await fetch('/api?action=vyjezdy');
@@ -302,24 +273,19 @@
         const box = document.getElementById('vyjezdy-list');
         box.innerHTML = '';
 
-        if (!data || data.length === 0) {
-          box.innerHTML = '<p class="text-gray-500">Žádné evidované výjezdy.</p>';
-          return;
-        }
-
         data.forEach(v => {
           const card = document.createElement('div');
-          card.className = "bg-gray-900 border border-gray-800 p-5 rounded-lg flex justify-between items-start shadow";
+          card.className = "bg-gray-900 border border-gray-800 p-5 rounded-lg flex justify-between items-start";
           card.innerHTML = `
             <div>
               <div class="flex items-center space-x-3">
-                <span class="bg-red-950 text-red-300 text-xs px-2.5 py-1 rounded border border-red-800 font-mono">${v.date || 'Neznámo'}</span>
+                <span class="bg-red-900/60 text-red-300 text-xs px-2.5 py-1 rounded border border-red-700">${v.date || 'Neznámo'}</span>
                 <h4 class="text-lg font-bold text-white">${v.title}</h4>
               </div>
               <p class="text-sm text-gray-400 mt-1"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${v.location}</p>
-              <p class="text-sm text-gray-300 mt-3 whitespace-pre-line">${v.description}</p>
+              <p class="text-sm text-gray-300 mt-3">${v.description}</p>
             </div>
-            <div class="flex space-x-2 ml-4">
+            <div class="flex space-x-2">
               <button onclick='editItem("vyjezd", ${JSON.stringify(v)})' class="p-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded"><i class="fa-solid fa-pen"></i></button>
               <button onclick="deleteItem('vyjezdy', '${v.id}')" class="p-2 bg-gray-800 hover:bg-gray-700 text-red-400 rounded"><i class="fa-solid fa-trash"></i></button>
             </div>
@@ -329,40 +295,37 @@
       } catch (e) { console.error(e); }
     }
 
-    // --- POMOCNÉ FUNKCE MAZÁNÍ A ÚPRAV ---
+    // SPRÁVA
     async function deleteItem(type, id) {
-      if (!confirm('Opravdu chcete tuto položku odstranit?')) return;
-      const action = type === 'vyjezd' ? 'vyjezdy' : type;
-      await fetch(`/api?action=${action}&id=${id}`, { method: 'DELETE' });
-      if (action === 'oznameni') loadOznameni();
-      if (action === 'smernice') loadSmernice();
-      if (action === 'vyjezdy') loadVyjezdy();
+      if (!confirm('Opravdu smazat?')) return;
+      await fetch(`/api?action=${type}&id=${id}`, { method: 'DELETE' });
+      if (type === 'oznameni') loadOznameni();
+      if (type === 'smernice') loadSmernice();
+      if (type === 'vyjezdy') loadVyjezdy();
     }
 
     function editItem(type, item) {
-      openModal(type, item.category || '', item);
+      openModal(type, item);
     }
 
-    // --- MODÁLNÍ OKNO HANDLER ---
-    function openModal(type, category = '', data = null) {
+    function openModal(type, data = null) {
       document.getElementById('modal').classList.remove('hidden');
       document.getElementById('form-type').value = type;
       document.getElementById('form-id').value = data ? data.id : '';
 
-      // Schovat všechna specifická pole
       document.getElementById('field-category').classList.add('hidden');
+      document.getElementById('field-author').classList.add('hidden');
       document.getElementById('field-location').classList.add('hidden');
       document.getElementById('field-date').classList.add('hidden');
-      document.getElementById('field-author').classList.add('hidden');
 
       if (type === 'oznameni') {
         document.getElementById('modal-title').innerText = data ? 'Úprava Oznámení' : 'Nové Oznámení';
         document.getElementById('field-author').classList.remove('hidden');
-        document.getElementById('input-author').value = data ? data.author : 'Ředitelství HZS';
+        document.getElementById('input-author').value = data ? data.author : 'Ředitelství';
       } else if (type === 'smernice') {
         document.getElementById('modal-title').innerText = data ? 'Úprava Směrnice' : 'Nová Směrnice';
         document.getElementById('field-category').classList.remove('hidden');
-        document.getElementById('input-category').value = category || (data ? data.category : '');
+        document.getElementById('input-category').value = data ? data.category : '';
       } else if (type === 'vyjezd') {
         document.getElementById('modal-title').innerText = data ? 'Úprava Výjezdu' : 'Nový Výjezd';
         document.getElementById('field-location').classList.remove('hidden');
@@ -386,42 +349,32 @@
       const id = document.getElementById('form-id').value;
       const method = id ? 'PUT' : 'POST';
 
-      let bodyData = {
+      let payload = {
         id: id || undefined,
-        title: document.getElementById('input-title').value,
+        title: document.getElementById('input-title').value
       };
 
       if (type === 'oznameni') {
-        bodyData.content = document.getElementById('input-content').value;
-        bodyData.author = document.getElementById('input-author').value;
-        await fetch('/api?action=oznameni', {
-          method, headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
-        });
+        payload.author = document.getElementById('input-author').value;
+        payload.content = document.getElementById('input-content').value;
+        await fetch('/api?action=oznameni', { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         loadOznameni();
       } else if (type === 'smernice') {
-        bodyData.category = document.getElementById('input-category').value || 'Obecné Směrnice';
-        bodyData.content = document.getElementById('input-content').value;
-        await fetch('/api?action=smernice', {
-          method, headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
-        });
+        payload.category = document.getElementById('input-category').value || 'Všeobecné';
+        payload.content = document.getElementById('input-content').value;
+        await fetch('/api?action=smernice', { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         loadSmernice();
       } else if (type === 'vyjezd') {
-        bodyData.location = document.getElementById('input-location').value;
-        bodyData.date = document.getElementById('input-date').value;
-        bodyData.description = document.getElementById('input-content').value;
-        await fetch('/api?action=vyjezdy', {
-          method, headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(bodyData)
-        });
+        payload.location = document.getElementById('input-location').value;
+        payload.date = document.getElementById('input-date').value;
+        payload.description = document.getElementById('input-content').value;
+        await fetch('/api?action=vyjezdy', { method, headers: {'Content-Type': 'application/json'}, body: JSON.stringify(payload) });
         loadVyjezdy();
       }
 
       closeModal();
     }
 
-    // Inicializace aplikace
     switchTab('members');
   </script>
 </body>
