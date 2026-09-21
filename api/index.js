@@ -314,7 +314,7 @@ app.get('/api/members', requireAuth, async (req, res) => {
           duty_start: null,
           total_duty_seconds: 0,
           duties_history: [],
-          weekly_bonuses: []
+          weekly_bonuses: {}
         }]).then(({ error }) => {
           if (error) console.error(`Chyba při vytvoření člena ${dm.name}:`, error.message);
         });
@@ -326,7 +326,7 @@ app.get('/api/members', requireAuth, async (req, res) => {
         duty_start: stored.duty_start !== undefined ? stored.duty_start : null,
         total_duty_seconds: stored.total_duty_seconds !== undefined ? stored.total_duty_seconds : 0,
         duties_history: stored.duties_history || [],
-        weekly_bonuses: stored.weekly_bonuses || []
+        weekly_bonuses: stored.weekly_bonuses || {}
       };
     });
 
