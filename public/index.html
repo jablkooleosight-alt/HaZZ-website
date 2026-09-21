@@ -9,82 +9,89 @@
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #12151b;
-      --panel: #191d25;
-      --panel-2: #1f242e;
-      --line: #2b313d;
-      --text: #e9ebef;
-      --muted: #8d95a4;
-      --red: #e63b2e;
-      --red-dim: #3a1c1d;
-      --amber: #f2a53a;
-      --amber-dim: #3b2d17;
-      --blue: #5aa0d6;
-      --green: #4cb782;
-      --grey: #7c8494;
-      --radius: 6px;
+      --bg: #0b0e14;
+      --panel: #141923;
+      --panel-2: #1b2230;
+      --line: #273042;
+      --text: #f0f3f9;
+      --muted: #8c97ad;
+      --red: #f03a2f;
+      --red-dim: rgba(240, 58, 47, 0.15);
+      --amber: #f59e0b;
+      --amber-dim: rgba(245, 158, 11, 0.15);
+      --blue: #3b82f6;
+      --green: #10b981;
+      --grey: #6b7280;
+      --radius: 10px;
       --f-head: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
       --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 10px 30px rgba(0, 0, 0, 0.35);
     }
 
     body.light-theme {
-      --bg: #f4f5f8;
+      --bg: #f8fafc;
       --panel: #ffffff;
-      --panel-2: #e9ecef;
-      --line: #d1d5db;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --red-dim: #fde8e8;
-      --amber-dim: #fef3c7;
+      --panel-2: #f1f5f9;
+      --line: #e2e8f0;
+      --text: #0f172a;
+      --muted: #64748b;
+      --red-dim: rgba(240, 58, 47, 0.1);
+      --amber-dim: rgba(245, 158, 11, 0.1);
+      --shadow-sm: 0 4px 12px rgba(15, 23, 42, 0.05);
+      --shadow-md: 0 10px 30px rgba(15, 23, 42, 0.1);
     }
 
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { color-scheme: dark; }
-    body { background: var(--bg); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; min-height: 100vh; transition: background 0.2s, color 0.2s; }
+    html { color-scheme: dark; scroll-behavior: smooth; }
+    body { background: var(--bg); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; min-height: 100vh; transition: background 0.25s ease, color 0.25s ease; }
     button, input, select, textarea { font: inherit; color: inherit; }
-    button { cursor: pointer; }
+    button { cursor: pointer; border: none; background: none; }
     :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-    h1, h2, h3 { font-family: var(--f-head); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }
-    h1 { font-size: 2.1rem; }
-    h2 { font-size: 1.35rem; }
+    h1, h2, h3 { font-family: var(--f-head); font-weight: 600; letter-spacing: 0.02em; line-height: 1.1; }
+    h1 { font-size: 2.25rem; }
+    h2 { font-size: 1.4rem; }
     .muted { color: var(--muted); }
 
-    .app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
-    .side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 22px; }
-    .brand-mark { width: 38px; height: 38px; border-radius: 8px; background: var(--red); display: grid; place-items: center; flex: none; }
-    .brand-mark svg { width: 22px; height: 22px; fill: #fff; }
-    .brand b { font-family: var(--f-head); font-size: 1.25rem; font-weight: 700; display: block; line-height: 1; }
-    .brand span { font-size: 0.78rem; color: var(--muted); }
-    .nav { display: flex; flex-direction: column; gap: 2px; }
-    .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius); color: var(--muted); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; }
-    .nav a:hover { background: var(--panel-2); color: var(--text); }
-    .nav a.on { background: var(--panel-2); color: var(--text); border-left-color: var(--red); }
-    .nav .badge { margin-left: auto; background: var(--amber); color: #1a1200; font-size: 0.72rem; font-weight: 700; border-radius: 20px; padding: 0 7px; min-width: 20px; text-align: center; }
-    .side-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .me { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
-    .me-name { font-weight: 600; line-height: 1.2; }
+    .app { display: grid; grid-template-columns: 270px 1fr; min-height: 100vh; }
+    .side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 24px 16px; position: sticky; top: 0; height: 100vh; box-shadow: var(--shadow-sm); z-index: 10; }
+    .brand { display: flex; align-items: center; gap: 14px; padding: 0 8px 24px; border-bottom: 1px solid var(--line); margin-bottom: 16px; }
+    .brand-mark { width: 42px; height: 42px; border-radius: 10px; background: linear-gradient(135deg, var(--red), #c52219); display: grid; place-items: center; flex: none; box-shadow: 0 6px 16px rgba(240, 58, 47, 0.3); }
+    .brand-mark svg { width: 24px; height: 24px; fill: #fff; }
+    .brand b { font-family: var(--f-head); font-size: 1.35rem; font-weight: 700; display: block; line-height: 1; letter-spacing: 0.03em; }
+    .brand span { font-size: 0.8rem; color: var(--muted); font-weight: 500; }
+    .nav { display: flex; flex-direction: column; gap: 4px; }
+    .nav a { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: var(--radius); color: var(--muted); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; transition: all 0.2s ease; }
+    .nav a:hover { background: var(--panel-2); color: var(--text); transform: translateX(2px); }
+    .nav a.on { background: var(--panel-2); color: var(--text); border-left-color: var(--red); font-weight: 600; box-shadow: var(--shadow-sm); }
+    .nav .badge { margin-left: auto; background: var(--amber); color: #1a1200; font-size: 0.72rem; font-weight: 700; border-radius: 20px; padding: 2px 8px; min-width: 22px; text-align: center; box-shadow: 0 2px 6px rgba(245, 158, 11, 0.3); }
+    .side-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 16px; display: flex; flex-direction: column; gap: 12px; }
+    .me { display: flex; align-items: center; gap: 12px; padding: 10px; background: var(--panel-2); border-radius: var(--radius); border: 1px solid var(--line); }
+    .me-name { font-weight: 600; line-height: 1.2; font-size: 0.95rem; }
     .me-rank { font-size: 0.8rem; color: var(--muted); }
-    .main { padding: 32px clamp(18px, 4vw, 44px) 60px; max-width: 1200px; width: 100%; }
-    .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-    .page-head p { color: var(--muted); margin-top: 6px; }
+    .main { padding: 36px clamp(20px, 4vw, 48px) 60px; max-width: 1280px; width: 100%; }
+    .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 28px; border-bottom: 1px solid var(--line); padding-bottom: 18px; }
+    .page-head p { color: var(--muted); margin-top: 4px; }
 
-    .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-head); font-weight: 700; font-size: 1rem; color: #fff; flex: none; background-size: cover; background-position: center; }
+    .avatar { width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-head); font-weight: 700; font-size: 1rem; color: #fff; flex: none; background-size: cover; background-position: center; box-shadow: 0 2px 8px rgba(0,0,0,0.2); }
 
-    .btn { display: inline-flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 14px; font-weight: 500; transition: background 0.15s, border-color 0.15s; text-decoration: none; }
-    .btn:hover { background: var(--line); }
-    .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
-    .btn.primary:hover { background: #f04a3d; }
-    .btn.discord { background: #5865F2; border-color: #5865F2; color: #fff; }
+    .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 16px; font-weight: 600; transition: all 0.2s ease; text-decoration: none; box-shadow: var(--shadow-sm); }
+    .btn:hover { background: var(--line); transform: translateY(-1px); border-color: var(--muted); }
+    .btn:active { transform: translateY(0); }
+    .btn.primary { background: var(--red); border-color: var(--red); color: #fff; box-shadow: 0 4px 14px rgba(240, 58, 47, 0.35); }
+    .btn.primary:hover { background: #d93025; border-color: #d93025; box-shadow: 0 6px 18px rgba(240, 58, 47, 0.5); }
+    .btn.discord { background: #5865F2; border-color: #5865F2; color: #fff; box-shadow: 0 4px 14px rgba(88, 101, 242, 0.35); }
     .btn.discord:hover { background: #4752C4; }
-    .btn.danger { color: #ff8b82; }
-    .btn.danger:hover { background: var(--red-dim); border-color: var(--red); }
-    .btn.ok { color: var(--green); }
-    .btn.sm { padding: 4px 10px; font-size: 0.85rem; }
+    .btn.danger { color: #f87171; border-color: rgba(248, 113, 113, 0.3); }
+    .btn.danger:hover { background: var(--red-dim); border-color: var(--red); color: #ef4444; }
+    .btn.ok { color: var(--green); border-color: rgba(16, 185, 129, 0.3); }
+    .btn.ok:hover { background: var(--amber-dim); }
+    .btn.sm { padding: 6px 12px; font-size: 0.85rem; border-radius: 8px; }
 
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
-    .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 12px; }
-    .panel-body { padding: 18px; }
+    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 24px; box-shadow: var(--shadow-sm); overflow: hidden; transition: border-color 0.2s; }
+    .panel:hover { border-color: rgba(140, 151, 173, 0.3); }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 20px; border-bottom: 1px solid var(--line); gap: 12px; background: var(--panel-2); }
+    .panel-body { padding: 20px; }
 
     .guideline-full { display: none; }
     .panel.expanded .guideline-snippet { display: none; }
@@ -92,54 +99,61 @@
     .panel:hover .guideline-snippet { display: none; }
     .panel:hover .guideline-full { display: block; }
 
-    .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
-    .strip > div { padding: 16px 20px; border-right: 1px solid var(--line); }
+    .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 24px; box-shadow: var(--shadow-sm); overflow: hidden; }
+    .strip > div { padding: 20px; border-right: 1px solid var(--line); position: relative; }
+    .strip > div::after { content: ""; position: absolute; bottom: 0; left: 0; right: 0; height: 3px; background: var(--red); opacity: 0; transition: opacity 0.2s; }
+    .strip > div:hover::after { opacity: 1; }
     .strip > div:last-child { border-right: 0; }
-    .strip .n { font-family: var(--f-head); font-size: 2.2rem; font-weight: 700; line-height: 1; }
-    .strip .l { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
+    .strip .n { font-family: var(--f-head); font-size: 2.4rem; font-weight: 700; line-height: 1; color: var(--text); }
+    .strip .l { color: var(--muted); font-size: 0.88rem; margin-top: 6px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; }
 
-    .tag { display: inline-block; padding: 1px 9px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--line); color: var(--muted); }
-    .tag.pending { color: var(--amber); border-color: #5a4520; background: var(--amber-dim); }
-    .tag.approved { color: var(--green); border-color: #25523d; }
+    .tag { display: inline-flex; align-items: center; padding: 3px 10px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--line); color: var(--muted); background: var(--bg); }
+    .tag.pending { color: var(--amber); border-color: rgba(245, 158, 11, 0.4); background: var(--amber-dim); }
+    .tag.approved { color: var(--green); border-color: rgba(16, 185, 129, 0.4); background: rgba(16, 185, 129, 0.1); }
 
     .inc-list { list-style: none; }
-    .inc { display: grid; grid-template-columns: 5px 1fr auto; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
+    .inc { display: grid; grid-template-columns: 6px 1fr auto; gap: 16px; padding: 16px 20px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; background: none; width: 100%; text-align: left; transition: background 0.15s; }
     .inc:last-child { border-bottom: 0; }
     .inc:hover { background: var(--panel-2); }
-    .inc .bar { align-self: stretch; border-radius: 3px; }
-    .inc .right { text-align: right; font-size: 0.85rem; color: var(--muted); }
-    .t-pozar { background: var(--red); }
-    .t-dn { background: var(--amber); }
-    .t-technika { background: var(--blue); }
-    .t-zachrana { background: var(--green); }
+    .inc .bar { align-self: stretch; border-radius: 4px; }
+    .inc .right { text-align: right; font-size: 0.88rem; color: var(--muted); }
+    .t-pozar { background: var(--red); box-shadow: 0 0 10px rgba(240, 58, 47, 0.4); }
+    .t-dn { background: var(--amber); box-shadow: 0 0 10px rgba(245, 158, 11, 0.4); }
+    .t-technika { background: var(--blue); box-shadow: 0 0 10px rgba(59, 130, 246, 0.4); }
+    .t-zachrana { background: var(--green); box-shadow: 0 0 10px rgba(16, 185, 129, 0.4); }
     .t-plany { background: var(--grey); }
 
-    .field { display: flex; flex-direction: column; gap: 5px; }
-    input[type=text], select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 11px; width: 100%; }
-    input:focus, select:focus, textarea:focus { border-color: var(--amber); outline: none; }
-    textarea { min-height: 90px; resize: vertical; }
+    .field { display: flex; flex-direction: column; gap: 6px; }
+    .field label { font-size: 0.9rem; font-weight: 500; color: var(--muted); }
+    input[type=text], select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 14px; width: 100%; transition: border-color 0.2s, box-shadow 0.2s; }
+    input:focus, select:focus, textarea:focus { border-color: var(--amber); outline: none; box-shadow: 0 0 0 3px var(--amber-dim); }
+    textarea { min-height: 100px; resize: vertical; }
 
     table { width: 100%; border-collapse: collapse; }
-    th { font-weight: 600; font-size: 0.85rem; color: var(--muted); text-align: left; padding: 10px 18px; border-bottom: 1px solid var(--line); }
-    td { padding: 11px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+    th { font-weight: 600; font-size: 0.85rem; color: var(--muted); text-align: left; padding: 12px 20px; border-bottom: 1px solid var(--line); background: var(--panel-2); text-transform: uppercase; letter-spacing: 0.03em; }
+    td { padding: 14px 20px; border-bottom: 1px solid var(--line); vertical-align: middle; }
     tr:last-child td { border-bottom: 0; }
-    .who { display: flex; align-items: center; gap: 11px; }
+    tr:hover td { background: rgba(255, 255, 255, 0.01); }
+    .who { display: flex; align-items: center; gap: 12px; }
     .table-wrap { overflow-x: auto; }
-    .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
+    .empty { padding: 36px 20px; text-align: center; color: var(--muted); font-size: 1.05rem; }
 
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(3px); }
-    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: 0 20px 40px rgba(0,0,0,0.4); animation: pop 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
-    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 18px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1; }
+    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto; backdrop-filter: blur(5px); animation: fadeIn 0.2s ease; }
+    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; width: min(720px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; box-shadow: var(--shadow-md); animation: pop 0.25s cubic-bezier(0.16, 1, 0.3, 1); }
+    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 20px 24px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 2; }
     .modal-body { padding: 24px; }
-    .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 16px 24px; border-top: 1px solid var(--line); background: var(--panel); position: sticky; bottom: 0; }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .modal-foot { display: flex; justify-content: flex-end; gap: 12px; padding: 18px 24px; border-top: 1px solid var(--line); background: var(--panel-2); position: sticky; bottom: 0; z-index: 2; }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
     .form-grid .full { grid-column: 1 / -1; }
-    .check-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: 170px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; background: var(--bg); }
-    .check-box label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; color: var(--text); font-weight: 400; cursor: pointer; }
-    @keyframes pop { from { opacity: 0; transform: scale(0.95) translateY(10px); } to { opacity: 1; transform: none; } }
+    .check-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; max-height: 180px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 8px 16px; background: var(--bg); }
+    .check-box label { display: flex; align-items: center; gap: 10px; font-size: 0.92rem; color: var(--text); font-weight: 400; cursor: pointer; padding: 4px; border-radius: 6px; transition: background 0.15s; }
+    .check-box label:hover { background: var(--panel-2); }
+    
+    @keyframes pop { from { opacity: 0; transform: scale(0.95) translateY(12px); } to { opacity: 1; transform: none; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-    .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
-    .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
+    .toasts { position: fixed; right: 24px; bottom: 24px; display: flex; flex-direction: column; gap: 10px; z-index: 100; }
+    .toast { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 14px 20px; box-shadow: var(--shadow-md); animation: pop 0.25s ease-out; font-weight: 500; }
     .toast.err { border-left-color: var(--red); }
 
     .login {
@@ -147,7 +161,7 @@
       display: grid;
       place-items: center;
       padding: 24px;
-      background: radial-gradient(circle at 50% 20%, rgba(230, 59, 46, 0.08) 0%, transparent 60%), var(--bg);
+      background: radial-gradient(circle at 50% 25%, rgba(240, 58, 47, 0.12) 0%, transparent 65%), var(--bg);
       position: relative;
       overflow: hidden;
     }
@@ -156,57 +170,57 @@
       position: absolute;
       inset: 0;
       background-image: linear-gradient(to right, var(--line) 1px, transparent 1px), linear-gradient(to bottom, var(--line) 1px, transparent 1px);
-      background-size: 40px 40px;
-      opacity: 0.15;
+      background-size: 48px 48px;
+      opacity: 0.12;
       pointer-events: none;
     }
     .login-card {
-      width: min(460px, 100%);
+      width: min(480px, 100%);
       background: var(--panel);
       border: 1px solid var(--line);
-      border-radius: 16px;
+      border-radius: 20px;
       overflow: hidden;
-      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.55), 0 0 0 1px rgba(255, 255, 255, 0.05) inset;
       position: relative;
       animation: pop 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .login-top {
-      padding: 40px 36px 28px;
+      padding: 48px 40px 32px;
       text-align: center;
       background: linear-gradient(to bottom, var(--panel-2), var(--panel));
       border-bottom: 1px solid var(--line);
     }
     .login-logo-wrap {
-      width: 64px;
-      height: 64px;
-      background: var(--red);
-      border-radius: 16px;
+      width: 72px;
+      height: 72px;
+      background: linear-gradient(135deg, var(--red), #c52219);
+      border-radius: 18px;
       display: grid;
       place-items: center;
-      margin: 0 auto 20px;
-      box-shadow: 0 8px 20px rgba(230, 59, 46, 0.3);
+      margin: 0 auto 24px;
+      box-shadow: 0 10px 25px rgba(240, 58, 47, 0.35);
     }
     .login-logo-wrap svg {
-      width: 36px;
-      height: 36px;
+      width: 40px;
+      height: 40px;
       fill: #fff;
     }
     .login-top h1 {
-      font-size: 2.4rem;
+      font-size: 2.6rem;
       font-weight: 700;
-      letter-spacing: 0.02em;
+      letter-spacing: 0.03em;
     }
     .login-top p {
       color: var(--muted);
-      margin-top: 8px;
-      font-size: 0.98rem;
-      line-height: 1.4;
+      margin-top: 10px;
+      font-size: 1.02rem;
+      line-height: 1.45;
     }
     .login-body {
-      padding: 32px 36px;
+      padding: 36px 40px;
       display: flex;
       flex-direction: column;
-      gap: 20px;
+      gap: 22px;
       text-align: center;
     }
     .btn-discord-modern {
@@ -217,24 +231,25 @@
       background: #5865F2;
       color: #fff;
       border: none;
-      border-radius: 10px;
-      padding: 14px 20px;
+      border-radius: 12px;
+      padding: 16px 24px;
       font-weight: 600;
-      font-size: 1.05rem;
+      font-size: 1.1rem;
       text-decoration: none;
-      box-shadow: 0 4px 14px rgba(88, 101, 242, 0.4);
+      box-shadow: 0 6px 20px rgba(88, 101, 242, 0.4);
       transition: all 0.2s ease;
     }
     .btn-discord-modern:hover {
       background: #4752C4;
       transform: translateY(-2px);
-      box-shadow: 0 6px 20px rgba(88, 101, 242, 0.6);
+      box-shadow: 0 8px 25px rgba(88, 101, 242, 0.6);
     }
     .login-footer-link {
       color: var(--muted);
-      font-size: 0.9rem;
+      font-size: 0.92rem;
       text-decoration: none;
       transition: color 0.15s;
+      font-weight: 500;
     }
     .login-footer-link:hover {
       color: var(--amber);
@@ -503,7 +518,7 @@
     user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
     activeTab: localStorage.getItem('active_tab') || 'dashboard',
     theme: localStorage.getItem('theme') || 'dark',
-    customColor: localStorage.getItem('custom_color') || '#e63b2e',
+    customColor: localStorage.getItem('custom_color') || '#f03a2f',
     activeGuidelineCategory: localStorage.getItem('active_guideline_cat') || 'všechny',
     adminSubTab: localStorage.getItem('admin_sub_tab') || 'pending',
     expandedGuidelines: {}
@@ -645,12 +660,12 @@
       </div>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase;">Reálný čas</div>
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; font-weight:600;">Reálný čas</div>
           <div id="real-time-clock" style="font-family:var(--f-head); font-size:1.15rem; font-weight:600;">${initialRealTime}</div>
         </div>
         <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase;">Čas ve službě</div>
-          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700;">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; font-weight:600;">Čas ve službě</div>
+          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; color:var(--amber);">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
         </div>
         <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
           ${dbUser.onDuty ? 'Ukončit službu' : 'Nastoupit do služby'}
@@ -665,7 +680,7 @@
       <div><div class="n">${approvedInc.length}</div><div class="l">tvých výjezdů celkem</div></div>
     </div>
 
-    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
+    <div style="display:grid; grid-template-columns: 2fr 1fr; gap:24px;">
       <div>
         <div class="panel">
           <div class="panel-head"><h2>Poslední výjezdy</h2><button class="btn primary sm" data-act="new-incident">+ Zapsat výjezd</button></div>
@@ -682,16 +697,16 @@
       <div>
         <div class="panel">
           <div class="panel-head"><h2>Ve službě</h2></div>
-          <div class="panel-body" style="display:flex; flex-direction:column; gap:10px;">
+          <div class="panel-body" style="display:flex; flex-direction:column; gap:12px;">
             ${activeDutyMembers.length ? activeDutyMembers.map(m => `
-              <div style="display:flex; align-items:center; gap:10px;">
+              <div style="display:flex; align-items:center; gap:12px; padding:6px 0; border-bottom:1px solid var(--line);">
                 ${avatar(m)}
                 <div>
-                  <div style="font-weight:600; font-size:0.9rem;">${esc(m.name)}</div>
-                  <div class="muted" style="font-size:0.75rem;">${esc(rankOf(m.rank).name)}</div>
+                  <div style="font-weight:600; font-size:0.92rem;">${esc(m.name)}</div>
+                  <div class="muted" style="font-size:0.78rem;">${esc(rankOf(m.rank).name)}</div>
                 </div>
               </div>
-            `).join('') : '<p class="muted" style="text-align:center;">Nikdo není ve službě.</p>'}
+            `).join('') : '<p class="muted" style="text-align:center; padding:12px 0;">Nikdo není ve službě.</p>'}
           </div>
         </div>
       </div>
@@ -705,7 +720,7 @@
     return `
     <div class="page-head">
       <div><h1>Výjezdy</h1><p>Správa a přehled všech výjezdů</p></div>
-      <button class="btn primary" data-act="new-incident">Zapsat výjezd</button>
+      <button class="btn primary" data-act="new-incident">+ Zapsat výjezd</button>
     </div>
     <div class="panel">
       <div class="table-wrap"><table>
@@ -722,7 +737,7 @@
                 ${i.status === 'approved' ? '<span class="tag approved">Schváleno</span>' : '<span class="tag pending">Čeká na schválení</span>'}
               </td>
               <td>
-                <div style="display:flex; gap:6px;">
+                <div style="display:flex; gap:8px;">
                   <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
                   ${(isLead(u) || i.commanderId === u.id) ? `
                     <button class="btn sm" data-act="edit-incident" data-id="${i.id}">Upravit</button>
@@ -752,7 +767,7 @@
           ${vehicles.map(v => {
             let statusBadge = '<span class="tag approved">Funkční</span>';
             if (v.status === 'oprava') statusBadge = '<span class="tag pending">V opravě</span>';
-            if (v.status === 'poskozene') statusBadge = '<span class="tag" style="color:var(--red); border-color:var(--red);">Poškozené</span>';
+            if (v.status === 'poskozene') statusBadge = '<span class="tag" style="color:var(--red); border-color:var(--red); background:var(--red-dim);">Poškozené</span>';
             return `
               <tr>
                 <td><b>${esc(v.name)}</b></td>
@@ -760,7 +775,7 @@
                 <td>${statusBadge}</td>
                 <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
                   <td>
-                    <div style="display:flex; gap:6px;">
+                    <div style="display:flex; gap:8px;">
                       <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
                       <button class="btn sm danger" data-act="confirm-delete-vehicle" data-id="${v.id}">Smazat</button>
                     </div>
@@ -788,24 +803,24 @@
       ${isLead(u) ? '<button class="btn primary" data-act="new-guideline">+ Přidat směrnici</button>' : ''}
     </div>
 
-    <div style="display:grid; grid-template-columns: 260px 1fr; gap:24px; align-items:start;">
-      <div class="panel" style="padding:12px; display:flex; flex-direction:column; gap:4px; position:sticky; top:20px;">
-        <div style="padding:8px 12px; font-size:0.75rem; text-transform:uppercase; color:var(--muted); font-weight:700;">Divize a kategorie</div>
+    <div style="display:grid; grid-template-columns: 280px 1fr; gap:28px; align-items:start;">
+      <div class="panel" style="padding:16px; display:flex; flex-direction:column; gap:6px; position:sticky; top:24px;">
+        <div style="padding:8px 12px; font-size:0.75rem; text-transform:uppercase; color:var(--muted); font-weight:700; letter-spacing:0.04em;">Divize a kategorie</div>
         ${categories.map(cat => {
           const count = cat === 'všechny' ? guidelines.length : guidelines.filter(g => g.category === cat).length;
           const isActive = currentCat === cat;
           return `
-            <button class="btn" data-act="filter-guideline-cat" data-cat="${esc(cat)}" style="justify-content:space-between; border:0; background:${isActive ? 'var(--panel-2)' : 'transparent'}; color:${isActive ? 'var(--text)' : 'var(--muted)'}; font-weight:${isActive ? '600' : '400'}; border-left:3px solid ${isActive ? 'var(--red)' : 'transparent'}; border-radius:4px; padding:10px 12px; text-align:left;">
+            <button class="btn" data-act="filter-guideline-cat" data-cat="${esc(cat)}" style="justify-content:space-between; border:0; background:${isActive ? 'var(--panel-2)' : 'transparent'}; color:${isActive ? 'var(--text)' : 'var(--muted)'}; font-weight:${isActive ? '600' : '400'}; border-left:3px solid ${isActive ? 'var(--red)' : 'transparent'}; border-radius:6px; padding:10px 14px; text-align:left; box-shadow:none;">
               <span style="text-transform:capitalize; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(cat)}</span>
-              <span class="tag" style="font-size:0.7rem; padding:0 6px; background:var(--bg);">${count}</span>
+              <span class="tag" style="font-size:0.7rem; padding:1px 7px; background:${isActive ? 'var(--panel)' : 'var(--bg)'};">${count}</span>
             </button>`;
         }).join('')}
       </div>
 
-      <div style="display:flex; flex-direction:column; gap:16px;">
-        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 18px;">
-          <div style="font-size:0.9rem; color:var(--muted);">Zobrazena kategorie: <b style="color:var(--text); text-transform:capitalize;">${esc(currentCat)}</b></div>
-          <div style="font-size:0.85rem; color:var(--muted);">Celkem položek: <b>${filtered.length}</b></div>
+      <div style="display:flex; flex-direction:column; gap:18px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:14px 20px; box-shadow:var(--shadow-sm);">
+          <div style="font-size:0.92rem; color:var(--muted);">Zobrazena kategorie: <b style="color:var(--text); text-transform:capitalize;">${esc(currentCat)}</b></div>
+          <div style="font-size:0.88rem; color:var(--muted);">Celkem položek: <b>${filtered.length}</b></div>
         </div>
 
         ${filtered.length ? filtered.map(g => {
@@ -814,12 +829,12 @@
           return `
           <div class="panel ${isExpanded ? 'expanded' : ''}" style="overflow:hidden; transition:border-color 0.15s;">
             <div class="panel-head" style="background:var(--panel-2);">
-              <div style="display:flex; align-items:center; gap:10px;">
-                <span class="tag" style="background:var(--red-dim); color:var(--red); border-color:var(--red);">${esc(g.category || 'Obecné')}</span>
+              <div style="display:flex; align-items:center; gap:12px;">
+                <span class="tag" style="background:var(--red-dim); color:var(--red); border-color:rgba(240, 58, 47, 0.3);">${esc(g.category || 'Obecné')}</span>
                 <h2>${esc(g.title)}</h2>
               </div>
-              <div style="display:flex; gap:8px; align-items:center;">
-                <span class="muted" style="font-size:0.78rem;">${fmtDate(g.date)}</span>
+              <div style="display:flex; gap:10px; align-items:center;">
+                <span class="muted" style="font-size:0.8rem;">${fmtDate(g.date)}</span>
                 <button class="btn sm primary" data-act="toggle-guideline-expand" data-id="${g.id}">${isExpanded ? 'Skrýt popis' : 'Zobrazit celý popis'}</button>
                 ${isLead(u) ? `
                   <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
@@ -834,7 +849,7 @@
           </div>
         `;
         }).join('') : `
-          <div class="panel" style="padding:40px; text-align:center;">
+          <div class="panel" style="padding:48px; text-align:center;">
             <p class="muted" style="font-size:1.05rem;">V této kategorii se prozatím nenacházejí žádné směrnice.</p>
           </div>
         `}
@@ -860,11 +875,11 @@
             <td>${esc(rankOf(m.rank).name)}</td>
             <td>#${esc(m.number)}</td>
             <td>
-              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.8rem; color:var(--muted); display:flex; align-items:center; gap:6px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
+              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.82rem; color:var(--muted); display:flex; align-items:center; gap:8px; margin-top:2px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:1px 6px; font-size:0.7rem;" data-act="confirm-delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
             </td>
             ${canManageMembers ? `
               <td>
-                <div style="display:flex; gap:6px;">
+                <div style="display:flex; gap:8px;">
                   <button class="btn sm" data-act="edit-member" data-id="${m.id}">Upravit</button>
                   <button class="btn sm danger" data-act="confirm-delete-member" data-id="${m.id}">Smazat</button>
                 </div>
@@ -879,9 +894,9 @@
     const subTab = state.adminSubTab || 'pending';
 
     return `
-    <div class="page-head"><div><h1>Správa Vedení</h1></div></div>
+    <div class="page-head"><div><h1>Správa Vedení</h1><p>Schvalování výjezdů, statistiky osob a přehled prémií</p></div></div>
     
-    <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--line); padding-bottom:12px;">
+    <div style="display:flex; gap:12px; margin-bottom:24px; border-bottom:1px solid var(--line); padding-bottom:14px;">
       <button class="btn ${subTab === 'pending' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="pending">Schvalování výjezdů (${pending.length})</button>
       <button class="btn ${subTab === 'member-stats' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="member-stats">Evidence osob</button>
       <button class="btn ${subTab === 'bonuses' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="bonuses">Prémie</button>
@@ -892,8 +907,9 @@
         <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
         <ul class="inc-list">
           ${pending.map(i => `
-            <li class="inc">
-              <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
+            <li class="inc" style="grid-template-columns: 6px 1fr auto;">
+              <span class="bar t-pozar"></span>
+              <span><b>${esc(i.number)}</b> — Místo: ${esc(i.location)}<br><small class="muted">Zapsal: ${esc(Data.member(i.commanderId)?.name || 'Neznámý')}</small></span>
               <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
             </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
         </ul>
@@ -940,10 +956,10 @@
                   <td>
                     ${Object.keys(bonuses).length ? Object.entries(bonuses).map(([incId, amount]) => {
                       const inc = Data.incidents().find(i => i.id === incId);
-                      return `<div style="font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; margin-bottom:4px;">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b> <button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-bonus" data-member-id="${m.id}" data-inc-id="${incId}">✕</button></div>`;
+                      return `<div style="font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:8px; margin-bottom:4px;">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b> <button class="btn sm danger" style="padding:1px 6px; font-size:0.7rem;" data-act="confirm-delete-bonus" data-member-id="${m.id}" data-inc-id="${incId}">✕</button></div>`;
                     }).join('') : '<span class="muted">Zatím žádné prémie</span>'}
                   </td>
-                  <td><b style="color:var(--green); font-size:1.1rem;">${total} €</b></td>
+                  <td><b style="color:var(--green); font-size:1.15rem;">${total} €</b></td>
                 </tr>`;
             }).join('')}
           </tbody>
@@ -1005,22 +1021,22 @@
           ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
         </nav>
         <div class="side-foot">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 0; position:relative;">
-            <button class="btn sm" data-act="toggle-theme" title="Přepnout režim">${state.theme === 'dark' ? '☀️ Světlý' : '🌙 Tmavý'}</button>
-            <div style="position:relative;">
-              <button class="btn sm" data-act="toggle-color-picker" title="Vlastní barva">🎨 Barva</button>
-              <div id="color-picker-popover" style="display:none; position:absolute; bottom:100%; right:0; margin-bottom:8px; background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius); padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:10; display:none; flex-direction:column; gap:8px; width:140px;">
-                <label style="font-size:0.75rem; color:var(--muted);">Vlastní barva:</label>
-                <input type="color" id="color-picker" value="${state.customColor}" style="width:100%; height:32px; border:1px solid var(--line); border-radius:var(--radius); background:none; cursor:pointer;" />
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:8px; padding:4px 0; position:relative;">
+            <button class="btn sm" data-act="toggle-theme" title="Přepnout režim" style="flex:1;">${state.theme === 'dark' ? '☀️ Světlý' : '🌙 Tmavý'}</button>
+            <div style="position:relative; flex:1;">
+              <button class="btn sm" data-act="toggle-color-picker" title="Vlastní barva" style="width:100%;">🎨 Barva</button>
+              <div id="color-picker-popover" style="display:none; position:absolute; bottom:100%; right:0; margin-bottom:10px; background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius); padding:12px; box-shadow:var(--shadow-md); z-index:10; flex-direction:column; gap:8px; width:150px;">
+                <label style="font-size:0.78rem; color:var(--muted); font-weight:600;">Vlastní barva:</label>
+                <input type="color" id="color-picker" value="${state.customColor}" style="width:100%; height:34px; border:1px solid var(--line); border-radius:6px; background:none; cursor:pointer;" />
                 <button class="btn sm" data-act="reset-color" style="width:100%; justify-content:center;">Výchozí</button>
               </div>
             </div>
           </div>
           <div class="me">
             ${avatar(u)}
-            <div>
-              <div class="me-name">${esc(u.name)}</div>
-              <div class="me-rank">${esc(rankOf(u.rank).name)}</div>
+            <div style="overflow:hidden;">
+              <div class="me-name" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${esc(u.name)}</div>
+              <div class="me-rank" style="text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">${esc(rankOf(u.rank).name)}</div>
             </div>
           </div>
           <button class="btn sm danger" data-act="logout" style="width:100%; justify-content:center;">Odhlásit se</button>
@@ -1037,10 +1053,10 @@
     closeModal();
     const html = `
     <div class="overlay" id="overlay">
-      <div class="modal" style="width:min(420px, 100%);">
+      <div class="modal" style="width:min(440px, 100%);">
         <div class="modal-head"><h2>${esc(title)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
-          <p style="font-size:1.05rem;">${esc(message)}</p>
+          <p style="font-size:1.05rem; line-height:1.5;">${esc(message)}</p>
         </div>
         <div class="modal-foot">
           <button class="btn" data-act="close" type="button">Zrušit</button>
@@ -1100,7 +1116,7 @@
               <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${editInc && editInc.type === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select>
             </div>
             <div class="field full">
-              <div style="background:var(--bg); padding:10px 12px; border-radius:var(--radius); border:1px solid var(--line); font-size:0.9rem;">
+              <div style="background:var(--bg); padding:12px 16px; border-radius:var(--radius); border:1px solid var(--line); font-size:0.92rem;">
                 <b>Velitel zásahu:</b> ${esc(editInc ? Data.member(editInc.commanderId)?.name : state.user.name)} <span class="muted">(Ty jako zapisovatel)</span>
               </div>
             </div>
@@ -1132,14 +1148,14 @@
     <div class="overlay" id="overlay">
       <div class="modal">
         <div class="modal-head"><h2>Detail výjezdu: ${esc(inc.number)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
-        <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:14px;">
           <div><b>Typ:</b> ${TYPES[inc.type]?.name || inc.type}</div>
           <div><b>Místo:</b> ${esc(inc.location)}</div>
           <div><b>Datum:</b> ${fmtDT(inc.datetime)}</div>
           <div><b>Velitel zásahu:</b> ${esc(Data.member(inc.commanderId)?.name || 'Neznámý')}</div>
           <div><b>Spolúčastnění členové:</b> ${coMembers.length ? coMembers.join(', ') : '<span class="muted">Žádní</span>'}</div>
-          <div><b>Status:</b> ${inc.status === 'approved' ? 'Schváleno' : 'Čeká na schválení'}</div>
-          <div><b>Popis:</b><p style="background:var(--bg); padding:10px; border-radius:var(--radius); margin-top:4px;">${esc(inc.description)}</p></div>
+          <div><b>Status:</b> ${inc.status === 'approved' ? '<span class="tag approved">Schváleno</span>' : '<span class="tag pending">Čeká na schválení</span>'}</div>
+          <div><b>Popis:</b><p style="background:var(--bg); padding:14px; border-radius:var(--radius); margin-top:6px; border:1px solid var(--line); line-height:1.5;">${esc(inc.description)}</p></div>
         </div>
         <div class="modal-foot"><button class="btn primary" data-act="close" type="button">Zavřít</button></div>
       </div>
@@ -1158,11 +1174,11 @@
 
     const html = `
     <div class="overlay" id="overlay">
-      <div class="modal" style="width:min(750px, 100%);">
+      <div class="modal" style="width:min(780px, 100%);">
         <div class="modal-head"><h2>Výjezdy člena: ${esc(member.name)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
-        <div class="modal-body" style="display:flex; flex-direction:column; gap:20px;">
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:24px;">
           <div>
-            <h3 style="margin-bottom:8px; font-size:1.1rem; color:var(--red);">Jako velitel (${asCommander.length})</h3>
+            <h3 style="margin-bottom:10px; font-size:1.15rem; color:var(--red);">Jako velitel (${asCommander.length})</h3>
             ${asCommander.length ? `
               <div class="table-wrap"><table>
                 <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th></tr></thead>
@@ -1172,7 +1188,7 @@
               </table></div>` : '<p class="muted">Žádné výjezdy v roli velitele.</p>'}
           </div>
           <div>
-            <h3 style="margin-bottom:8px; font-size:1.1rem; color:var(--amber);">Jako spolúčastněný (${asCo.length})</h3>
+            <h3 style="margin-bottom:10px; font-size:1.15rem; color:var(--amber);">Jako spolúčastněný (${asCo.length})</h3>
             ${asCo.length ? `
               <div class="table-wrap"><table>
                 <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th></tr></thead>
@@ -1284,11 +1300,11 @@
       }
     }
     if (act === 'reset-color') {
-      state.customColor = '#e63b2e';
+      state.customColor = '#f03a2f';
       localStorage.setItem('custom_color', state.customColor);
       applyThemeSettings();
       const picker = $('#color-picker');
-      if (picker) picker.value = '#e63b2e';
+      if (picker) picker.value = '#f03a2f';
       toast('Barva resetována do výchozího stavu.');
     }
     if (act === 'set-admin-subtab') {
