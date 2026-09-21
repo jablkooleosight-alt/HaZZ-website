@@ -506,6 +506,7 @@
     theme: localStorage.getItem('theme') || 'dark',
     customColor: localStorage.getItem('custom_color') || '#e63b2e',
     activeGuidelineCategory: localStorage.getItem('active_guideline_cat') || 'všechny',
+    adminSubTab: localStorage.getItem('admin_sub_tab') || 'pending',
     expandedGuidelines: {}
   };
 
@@ -758,7 +759,7 @@
                 <td><b>${esc(v.name)}</b></td>
                 <td>${esc(v.type)}</td>
                 <td>${statusBadge}</td>
-                <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
+                <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
                   <td>
                     <div style="display:flex; gap:6px;">
                       <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
@@ -767,39 +768,6 @@
                   </td>` : ''}
               </tr>`;
           }).join('') || '<tr><td colspan="5" class="empty">Žádná vozidla v evidenci.</td></tr>'}
-        </tbody>
-      </table></div>
-    </div>`;
-  }
-
-  function viewMemberIncidentsStats() {
-    const members = Data.members();
-    const incidents = Data.incidents();
-
-    return `
-    <div class="page-head">
-      <div><h1>Evidence výjezdů na členy</h1><p>Celkový přehled výjezdů rozepsaný na jednotlivé osoby (velitel vs. spolúčastněný)</p></div>
-    </div>
-    <div class="panel">
-      <div class="table-wrap"><table>
-        <thead><tr><th>Člen</th><th>Hodnost</th><th>Jako velitel</th><th>Jako spolúčastněný</th><th>Celkem výjezdů</th><th>Akce</th></tr></thead>
-        <tbody>
-          ${members.map(m => {
-            const asCommander = incidents.filter(i => i.commanderId === m.id);
-            const asCo = incidents.filter(i => i.memberIds && i.memberIds.includes(m.id));
-            const total = asCommander.length + asCo.length;
-            return `
-              <tr>
-                <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
-                <td>${esc(rankOf(m.rank).name)}</td>
-                <td><span class="tag approved">${asCommander.length}x</span></td>
-                <td><span class="tag pending">${asCo.length}x</span></td>
-                <td><b>${total}</b></td>
-                <td>
-                  <button class="btn sm" data-act="open-member-incidents-modal" data-id="${m.id}">Zobrazit seznam</button>
-                </td>
-              </tr>`;
-          }).join('')}
         </tbody>
       </table></div>
     </div>`;
@@ -907,49 +875,82 @@
     </table></div></div>`;
   }
 
-  function viewBonuses() {
-    const members = Data.members();
-    return `
-    <div class="page-head">
-      <div><h1>Týdenní prémie členů</h1><p>Přehled od neděle do neděle (automatický reset v pondělí o půlnoci)</p></div>
-    </div>
-    <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Záznamy prémií za tento týden</th><th>Celkem prémie</th></tr></thead>
-      <tbody>
-        ${members.map(m => {
-          const bonuses = m.weeklyBonuses || {};
-          const total = Object.values(bonuses).reduce((a, b) => a + b, 0);
-          return `
-            <tr>
-              <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
-              <td>${esc(rankOf(m.rank).name)}</td>
-              <td>
-                ${Object.keys(bonuses).length ? Object.entries(bonuses).map(([incId, amount]) => {
-                  const inc = Data.incidents().find(i => i.id === incId);
-                  return `<div style="font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; margin-bottom:4px;">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b> <button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-bonus" data-member-id="${m.id}" data-inc-id="${incId}">✕</button></div>`;
-                }).join('') : '<span class="muted">Zatím žádné prémie</span>'}
-              </td>
-              <td><b style="color:var(--green); font-size:1.1rem;">${total} €</b></td>
-            </tr>`;
-        }).join('')}
-      </tbody>
-    </table></div></div>`;
-  }
-
   function viewAdmin() {
     const pending = Data.incidents().filter(i => i.status === 'pending');
+    const subTab = state.adminSubTab || 'pending';
+
     return `
     <div class="page-head"><div><h1>Správa Vedení</h1></div></div>
-    <div class="panel">
-      <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
-      <ul class="inc-list">
-        ${pending.map(i => `
-          <li class="inc">
-            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
-            <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
-          </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
-      </ul>
-    </div>`;
+    
+    <div style="display:flex; gap:10px; margin-bottom:20px; border-bottom:1px solid var(--line); padding-bottom:12px;">
+      <button class="btn ${subTab === 'pending' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="pending">Schvalování výjezdů (${pending.length})</button>
+      <button class="btn ${subTab === 'member-stats' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="member-stats">Evidence osob</button>
+      <button class="btn ${subTab === 'bonuses' ? 'primary' : ''}" data-act="set-admin-subtab" data-sub="bonuses">Prémie</button>
+    </div>
+
+    ${subTab === 'pending' ? `
+      <div class="panel">
+        <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
+        <ul class="inc-list">
+          ${pending.map(i => `
+            <li class="inc">
+              <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
+              <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
+            </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
+        </ul>
+      </div>
+    ` : subTab === 'member-stats' ? `
+      <div class="panel">
+        <div class="panel-head"><h2>Evidence výjezdů na členy</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Člen</th><th>Hodnost</th><th>Jako velitel</th><th>Jako spolúčastněný</th><th>Celkem výjezdů</th><th>Akce</th></tr></thead>
+          <tbody>
+            ${Data.members().map(m => {
+              const incidents = Data.incidents();
+              const asCommander = incidents.filter(i => i.commanderId === m.id);
+              const asCo = incidents.filter(i => i.memberIds && i.memberIds.includes(m.id));
+              const total = asCommander.length + asCo.length;
+              return `
+                <tr>
+                  <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
+                  <td>${esc(rankOf(m.rank).name)}</td>
+                  <td><span class="tag approved">${asCommander.length}x</span></td>
+                  <td><span class="tag pending">${asCo.length}x</span></td>
+                  <td><b>${total}</b></td>
+                  <td>
+                    <button class="btn sm" data-act="open-member-incidents-modal" data-id="${m.id}">Zobrazit seznam</button>
+                  </td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    ` : `
+      <div class="panel">
+        <div class="panel-head"><h2>Týdenní prémie členů</h2></div>
+        <div class="table-wrap"><table>
+          <thead><tr><th>Člen</th><th>Hodnost</th><th>Záznamy prémií za tento týden</th><th>Celkem prémie</th></tr></thead>
+          <tbody>
+            ${Data.members().map(m => {
+              const bonuses = m.weeklyBonuses || {};
+              const total = Object.values(bonuses).reduce((a, b) => a + b, 0);
+              return `
+                <tr>
+                  <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
+                  <td>${esc(rankOf(m.rank).name)}</td>
+                  <td>
+                    ${Object.keys(bonuses).length ? Object.entries(bonuses).map(([incId, amount]) => {
+                      const inc = Data.incidents().find(i => i.id === incId);
+                      return `<div style="font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; margin-bottom:4px;">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b> <button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-bonus" data-member-id="${m.id}" data-inc-id="${incId}">✕</button></div>`;
+                    }).join('') : '<span class="muted">Zatím žádné prémie</span>'}
+                  </td>
+                  <td><b style="color:var(--green); font-size:1.1rem;">${total} €</b></td>
+                </tr>`;
+            }).join('')}
+          </tbody>
+        </table></div>
+      </div>
+    `}`;
   }
 
   function renderView() {
@@ -960,10 +961,8 @@
     if (v === 'dashboard') el.innerHTML = viewDashboard();
     else if (v === 'incidents') el.innerHTML = viewIncidents();
     else if (v === 'vehicles') el.innerHTML = viewVehicles();
-    else if (v === 'member-stats') el.innerHTML = viewMemberIncidentsStats();
     else if (v === 'guidelines') el.innerHTML = viewGuidelines();
     else if (v === 'members') el.innerHTML = viewMembers();
-    else if (v === 'bonuses' && isMajorOrHigher(state.user)) el.innerHTML = viewBonuses();
     else if (v === 'admin' && isLead(state.user)) el.innerHTML = viewAdmin();
     else el.innerHTML = viewDashboard();
   }
@@ -1002,10 +1001,8 @@
           <a href="#/dashboard" class="${state.activeTab === 'dashboard' ? 'on' : ''}">Přehled</a>
           <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
           <a href="#/vehicles" class="${state.activeTab === 'vehicles' ? 'on' : ''}">Garáž / Vozidla</a>
-          <a href="#/member-stats" class="${state.activeTab === 'member-stats' ? 'on' : ''}">Evidence osob</a>
           <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
           <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
-          ${isMajorOrHigher(u) ? `<a href="#/bonuses" class="${state.activeTab === 'bonuses' ? 'on' : ''}">Prémie</a>` : ''}
           ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
         </nav>
         <div class="side-foot">
@@ -1294,6 +1291,11 @@
       const picker = $('#color-picker');
       if (picker) picker.value = '#e63b2e';
       toast('Barva resetována do výchozího stavu.');
+    }
+    if (act === 'set-admin-subtab') {
+      state.adminSubTab = el.dataset.sub;
+      localStorage.setItem('admin_sub_tab', state.adminSubTab);
+      renderView();
     }
     if (act === 'logout') {
       state.user = null;
