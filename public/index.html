@@ -224,7 +224,7 @@
       members: [],
       incidents: [],
       guidelines: [
-        { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'Zásahy', date: new Date().toISOString() }
+        { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'obecné směrnice', date: new Date().toISOString() }
       ],
       announcements: [],
       divisions: [],
@@ -386,7 +386,8 @@
     user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
     activeTab: localStorage.getItem('active_tab') || 'dashboard',
     theme: localStorage.getItem('theme') || 'dark',
-    customColor: localStorage.getItem('custom_color') || '#e63b2e'
+    customColor: localStorage.getItem('custom_color') || '#e63b2e',
+    activeGuidelineCategory: localStorage.getItem('active_guideline_cat') || 'všechny'
   };
 
   function applyThemeSettings() {
@@ -628,26 +629,66 @@
 
   function viewGuidelines() {
     const u = state.user;
+    const guidelines = Data.guidelines();
+    const currentCat = state.activeGuidelineCategory || 'všechny';
+
+    const categories = ['všechny', ...DIVISIONS];
+    const filtered = currentCat === 'všechny' 
+      ? guidelines 
+      : guidelines.filter(g => g.category === currentCat);
+
     return `
     <div class="page-head">
-      <div><h1>Směrnice &amp; Předpisy</h1></div>
+      <div><h1>Směrnice &amp; Předpisy</h1><p>Oficiální metodiky, předpisy a operační postupy sjednocené dle divizí</p></div>
       ${isLead(u) ? '<button class="btn primary" data-act="new-guideline">+ Přidat směrnici</button>' : ''}
     </div>
-    <div class="stack">
-      ${Data.guidelines().map(g => `
-        <div class="panel">
-          <div class="panel-head">
-            <h2>${esc(g.title)}</h2>
-            <div style="display:flex; gap:10px; align-items:center;">
-              <span class="tag">${esc(g.category)}</span>${isLead(u) ? `
-                <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
-                <button class="btn sm danger" data-act="confirm-delete-guideline" data-id="${g.id}">Smazat</button>
-              ` : ''}
+
+    <div style="display:grid; grid-template-columns: 260px 1fr; gap:24px; align-items:start;">
+      <!-- Boční panel kategorií -->
+      <div class="panel" style="padding:12px; display:flex; flex-direction:column; gap:4px; position:sticky; top:20px;">
+        <div style="padding:8px 12px; font-size:0.75rem; text-transform:uppercase; color:var(--muted); font-weight:700;">Divize a kategorie</div>
+        ${categories.map(cat => {
+          const count = cat === 'všechny' ? guidelines.length : guidelines.filter(g => g.category === cat).length;
+          const isActive = currentCat === cat;
+          return `
+            <button class="btn" data-act="filter-guideline-cat" data-cat="${esc(cat)}" style="justify-content:space-between; border:0; background:${isActive ? 'var(--panel-2)' : 'transparent'}; color:${isActive ? 'var(--text)' : 'var(--muted)'}; font-weight:${isActive ? '600' : '400'}; border-left:3px solid ${isActive ? 'var(--red)' : 'transparent'}; border-radius:4px; padding:10px 12px; text-align:left;">
+              <span style="text-transform:capitalize; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;">${esc(cat)}</span>
+              <span class="tag" style="font-size:0.7rem; padding:0 6px; background:var(--bg);">${count}</span>
+            </button>`;
+        }).join('')}
+      </div>
+
+      <!-- Hlavní obsah směrnic -->
+      <div style="display:flex; flex-direction:column; gap:16px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 18px;">
+          <div style="font-size:0.9rem; color:var(--muted);">Zobrazena kategorie: <b style="color:var(--text); text-transform:capitalize;">${esc(currentCat)}</b></div>
+          <div style="font-size:0.85rem; color:var(--muted);">Celkem položek: <b>${filtered.length}</b></div>
+        </div>
+
+        ${filtered.length ? filtered.map(g => `
+          <div class="panel" style="overflow:hidden; transition:border-color 0.15s;">
+            <div class="panel-head" style="background:var(--panel-2);">
+              <div style="display:flex; align-items:center; gap:10px;">
+                <span class="tag" style="background:var(--red-dim); color:var(--red); border-color:var(--red);">${esc(g.category || 'Obecné')}</span>
+                <h2>${esc(g.title)}</h2>
+              </div>
+              <div style="display:flex; gap:8px; align-items:center;">
+                <span class="muted" style="font-size:0.78rem;">${fmtDate(g.date)}</span>${isLead(u) ? `
+                  <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
+                  <button class="btn sm danger" data-act="confirm-delete-guideline" data-id="${g.id}">Smazat</button>
+                ` : ''}
+              </div>
+            </div>
+            <div class="panel-body" style="background:var(--panel);">
+              <p style="white-space:pre-wrap; line-height:1.6; color:var(--text);">${esc(g.content)}</p>
             </div>
           </div>
-          <div class="panel-body"><p>${esc(g.content)}</p></div>
-        </div>
-      `).join('') || '<div class="empty">Žádné směrnice.</div>'}
+        `).join('') : `
+          <div class="panel" style="padding:40px; text-align:center;">
+            <p class="muted" style="font-size:1.05rem;">V této kategorii se prozatím nenacházejí žádné směrnice.</p>
+          </div>
+        `}
+      </div>
     </div>`;
   }
 
@@ -1059,6 +1100,11 @@
         toast('Směrnice smazána.');
         renderApp();
       });
+    }
+    if (act === 'filter-guideline-cat') {
+      state.activeGuidelineCategory = el.dataset.cat;
+      localStorage.setItem('active_guideline_cat', state.activeGuidelineCategory);
+      renderView();
     }
     if (act === 'new-announcement') openAnnouncementModal();
     if (act === 'manual-add-member') openMemberModal();
