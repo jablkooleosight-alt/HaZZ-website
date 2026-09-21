@@ -248,7 +248,7 @@ app.delete('/api/members/:id', async (req, res) => {
 
 app.get('/api/incidents', async (req, res) => {
     try {
-        const { data, error } = await supabase.from('incidents').select('*').order('datetime', { ascending: false });
+        const { data, error } = await supabase.from('incidents').select('*').order('date', { ascending: false });
         if (error) throw error;
         res.json(data);
     } catch (err) {
@@ -292,6 +292,61 @@ app.delete('/api/incidents/:id', async (req, res) => {
     try {
         const { id } = req.params;
         const { error } = await supabase.from('incidents').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+// ==================== SLUŽBY (SUPABASE) ====================
+
+app.get('/api/services', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('services').select('*').order('date', { ascending: false });
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/services', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('services').insert([req.body]).select();
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/services/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('services').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.patch('/api/services/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('services').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/services/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('services').delete().eq('id', id);
         if (error) throw error;
         res.json({ success: true });
     } catch (err) {
