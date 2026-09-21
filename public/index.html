@@ -7,10 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
-  
-  <!-- Supabase JS SDK -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-
   <style>
     :root {
       --bg: #12151b;
@@ -31,9 +27,20 @@
       --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
     }
 
+    body.light-theme {
+      --bg: #f4f5f8;
+      --panel: #ffffff;
+      --panel-2: #e9ecef;
+      --line: #d1d5db;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --red-dim: #fde8e8;
+      --amber-dim: #fef3c7;
+    }
+
     * { box-sizing: border-box; margin: 0; padding: 0; }
     html { color-scheme: dark; }
-    body { background: var(--bg); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; min-height: 100vh; }
+    body { background: var(--bg); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; min-height: 100vh; transition: background 0.2s, color 0.2s; }
     button, input, select, textarea { font: inherit; color: inherit; }
     button { cursor: pointer; }
     :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
@@ -52,6 +59,7 @@
     .brand span { font-size: 0.78rem; color: var(--muted); }
     .nav { display: flex; flex-direction: column; gap: 2px; }
     .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius); color: var(--muted); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; }
+    .nav a svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
     .nav a:hover { background: var(--panel-2); color: var(--text); }
     .nav a.on { background: var(--panel-2); color: var(--text); border-left-color: var(--red); }
     .nav .badge { margin-left: auto; background: var(--amber); color: #1a1200; font-size: 0.72rem; font-weight: 700; border-radius: 20px; padding: 0 7px; min-width: 20px; text-align: center; }
@@ -123,9 +131,12 @@
     .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); }
     .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
     .form-grid .full { grid-column: 1 / -1; }
+    .check-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: 170px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; background: var(--bg); }
+    .check-box label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; color: var(--text); font-weight: 400; cursor: pointer; }
+    @keyframes pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
 
     .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
-    .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); }
+    .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
     .toast.err { border-left-color: var(--red); }
 
     .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--bg); }
@@ -142,12 +153,8 @@
 
   <script>
   // <![CDATA[
-  // 1. INICIALIZACE SUPABASE - DOPLŇTE VLASTNÍ ÚDAJE Z DASHBOARDU
-  const SUPABASE_URL = "https://hrkqnwazirarvabzvtzb.supabase.co";
-  const SUPABASE_ANON_KEY = "sb_secret_7WxKNYlxYawlXTdqtzgnRg_1PE-C2yu";
-  const supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
   const CONFIG = {
+    WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
     DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC"
   };
 
@@ -167,6 +174,10 @@
     { key: 'reditelstvi', name: 'Ředitelství', level: 13 }
   ];
 
+  const LEAD_LEVEL = 6;
+  const INNER_LEAD_LEVEL = 9;
+  const DIRECTOR_LEVEL = 10;
+
   const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
 
   const TYPES = {
@@ -179,15 +190,105 @@
 
   const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = sel => document.querySelector(sel);
+  const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('cs-CZ') : '-';
   const fmtDT = iso => iso ? `${new Date(iso).toLocaleDateString('cs-CZ')} ${new Date(iso).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : '-';
   const uid = () => Math.random().toString(36).slice(2, 10);
+  const initials = name => (name || 'U N').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
+
+  const avatar = m => {
+    if (m && m.avatar) {
+      return `<span class="avatar" style="background-image:url('${m.avatar}')"></span>`;
+    }
+    return `<span class="avatar" style="background:#8e44ad">${esc(initials(m ? m.name : ''))}</span>`;
+  };
+
+  async function sendDiscordWebhook(url, payload) {
+    if (!url || url.includes("PRIDAJ_SVOJ") || url.trim() === "") return;
+    try {
+      await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+    } catch (e) { console.error(e); }
+  }
+
+  const STORE_KEY = 'hzs_rp_v2_data';
+
+  function seed() {
+    return {
+      members: [],
+      incidents: [],
+      guidelines: [
+        { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'Zásahy', date: new Date().toISOString() }
+      ],
+      divisions: [],
+      monthlyResetDate: new Date().toISOString()
+    };
+  }
+
+  let DB = (() => {
+    try {
+      const r = localStorage.getItem(STORE_KEY);
+      if (r) return JSON.parse(r);
+    } catch (err) { console.error(err); }
+    return seed();
+  })();
+
+  const persist = () => {
+    try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch (e) {}
+  };
+
+  const Data = {
+    members: () => DB.members || [],
+    member: id => DB.members.find(m => m.id === id) || null,
+    incidents: () => DB.incidents || [],
+    guidelines: () => DB.guidelines || [],
+    divisions: () => DB.divisions || [],
+    saveIncident(inc) {
+      const idx = DB.incidents.findIndex(x => x.id === inc.id);
+      if (idx >= 0) DB.incidents[idx] = inc;
+      else DB.incidents.push(inc);
+      persist();
+    },
+    saveMember(m) {
+      const idx = DB.members.findIndex(x => x.id === m.id);
+      if (idx >= 0) DB.members[idx] = m;
+      else DB.members.push(m);
+      persist();
+    },
+    syncMembers(discordMembers) {
+      DB.members = discordMembers.map(dm => {
+        const existing = DB.members.find(m => m.id === dm.id);
+        return {
+          id: dm.id,
+          name: dm.name,
+          rank: dm.rank,
+          number: dm.number,
+          avatar: dm.avatar,
+          joined: dm.joined,
+          onDuty: existing ? existing.onDuty : false,
+          dutyStart: existing ? existing.dutyStart : null,
+          totalDutySeconds: existing ? existing.totalDutySeconds : 0
+        };
+      });
+      persist();
+    },
+    resetMonthlyStats() {
+      DB.monthlyResetDate = new Date().toISOString();
+      persist();
+    }
+  };
 
   const state = {
-    user: null,
+    user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
     activeTab: 'dashboard',
-    incidents: [],
-    guidelines: []
+    theme: localStorage.getItem('theme') || 'dark'
   };
+
+  const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
+  const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
+  const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
 
   function toast(msg, isErr = false) {
     const container = $('#toasts');
@@ -199,24 +300,16 @@
     setTimeout(() => t.remove(), 3200);
   }
 
-  // DISCORD LOGIN PRES SUPABASE
-  async function loginWithDiscord() {
-    const { error } = await supabaseClient.auth.signInWithOAuth({
-      provider: 'discord',
-      options: { redirectTo: window.location.origin }
-    });
-    if (error) toast('Chyba přihlášení: ' + error.message, true);
-  }
-
-  async function logout() {
-    await supabaseClient.auth.signOut();
-    state.user = null;
-    renderApp();
-  }
-
-  function renderLogin() {
+  async function renderLogin() {
     const root = $('#root');
     if (!root) return;
+
+    let loginUrl = '#';
+    try {
+      const res = await fetch('/api/auth/url');
+      const data = await res.json();
+      loginUrl = data.url;
+    } catch(e) { console.error('Nelze načíst Auth URL', e); }
 
     root.innerHTML = `
     <div class="login"><div class="login-card">
@@ -225,9 +318,9 @@
         <p>Pro přístup do výjezdového portálu se přihlaste svým Discord účtem.</p>
       </div>
       <div class="login-body">
-        <button onclick="loginWithDiscord()" class="btn discord" style="justify-content:center; padding:12px; font-size:1.05rem; width: 100%;">
+        <a href="${loginUrl}" class="btn discord" style="justify-content:center; padding:12px; font-size:1.05rem;">
           Přihlásit se přes Discord
-        </button>
+        </a>
         <div>
           <a href="${CONFIG.DISCORD_INVITE_LINK}" target="_blank" rel="noopener noreferrer" style="color:var(--amber); text-decoration:none; font-size:0.85rem;">
             Nemáš přístup? Připoj se na náš Discord server
@@ -237,26 +330,70 @@
     </div></div>`;
   }
 
-  async function loadData() {
-    const { data: incs } = await supabaseClient.from('incidents').select('*').order('datetime', { ascending: false });
-    const { data: gds } = await supabaseClient.from('guidelines').select('*');
-    state.incidents = incs || [];
-    state.guidelines = gds || [];
+  async function syncDutyToDiscord() {
+    const activeMembers = Data.members()
+      .filter(m => m.onDuty)
+      .map(m => ({ name: m.name, rankName: rankOf(m.rank).name }));
+
+    try {
+      await fetch('/api/duty-sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ activeMembers })
+      });
+    } catch (e) {
+      console.error('Chyba aktualizace služby:', e);
+    }
   }
 
   function viewDashboard() {
+    const u = state.user;
+    const myIncidents = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+    const approvedInc = myIncidents.filter(i => i.status === 'approved');
+
+    let bonus = 0;
+    approvedInc.forEach(i => {
+      if (i.commanderId === u.id) bonus += 1500;
+      else if (i.memberIds && i.memberIds.includes(u.id)) bonus += 1000;
+    });
+
+    const dbUser = Data.member(u.id) || u;
+    const totalMin = Math.floor((dbUser.totalDutySeconds || 0) / 60);
+    const hours = Math.floor(totalMin / 60) || 0;
+    const mins = (totalMin % 60) || 0;
+
     return `
     <div class="page-head">
-      <div><h1>Vítej, ${esc(state.user.name)}</h1><p>Hodnost: ${esc(rankOf(state.user.rank).name)}</p></div>
+      <div><h1>Vítej, ${esc(u.name)}</h1><p>Hodnost: ${esc(rankOf(u.rank).name)}</p></div>
+      <div>
+        <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
+          ${dbUser.onDuty ? 'Ukončit službu (Aktivní)' : 'Nastoupit do služby'}
+        </button>
+      </div>
     </div>
+
     <div class="strip">
-      <div><div class="n">${state.incidents.length}</div><div class="l">Celkem výjezdů</div></div>
+      <div><div class="n">${approvedInc.length}</div><div class="l">Moje výjezdy</div></div>
+      ${isDirector(u) ? `<div><div class="n">${bonus.toLocaleString()} €</div><div class="l">Moje Prémie za výjezdy</div></div>` : ''}
+      <div><div class="n">${hours}h ${mins}m</div><div class="l">Odsloužený čas</div></div>
     </div>
+
+    ${isInnerLead(u) ? `
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Statistika výjezdů za 30 dní (Užší Vedení)</h2>
+        <button class="btn sm danger" data-act="reset-stats">Resetovat měsíční statistiku</button>
+      </div>
+      <div class="panel-body">
+        <p class="muted">Od posledního resetu (${fmtDate(DB.monthlyResetDate || new Date())}) bylo zaznamenáno <b>${Data.incidents().length}</b> výjezdů.</p>
+      </div>
+    </div>` : ''}
+
     <div class="panel">
       <div class="panel-head"><h2>Poslední dostupné výjezdy</h2><button class="btn primary sm" data-act="new-incident">Zapsat výjezd</button></div>
       <ul class="inc-list">
-        ${state.incidents.slice(0, 5).map(i => `
-          <li class="inc">
+        ${myIncidents.slice(0, 5).map(i => `
+          <li class="inc" data-act="open-incident" data-id="${i.id}">
             <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
             <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
             <span class="right">${fmtDT(i.datetime)}</span>
@@ -266,15 +403,18 @@
   }
 
   function viewIncidents() {
+    const u = state.user;
+    const list = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+
     return `
     <div class="page-head">
-      <div><h1>Výjezdy</h1></div>
+      <div><h1>Výjezdy</h1><p>${isLead(u) ? 'Všechny výjezdy jednotky' : 'Moje výjezdy'}</p></div>
       <button class="btn primary" data-act="new-incident">Zapsat výjezd</button>
     </div>
     <div class="panel">
       <ul class="inc-list">
-        ${state.incidents.map(i => `
-          <li class="inc">
+        ${list.map(i => `
+          <li class="inc" data-act="open-incident" data-id="${i.id}">
             <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
             <span><b>${esc(i.number)}</b> (${TYPES[i.type] ? TYPES[i.type].name : ''}) - ${esc(i.location)}</span>
             <span class="right">${i.status === 'pending' ? '<span class="tag pending">Čeká</span>' : '<span class="tag approved">Schváleno</span>'}</span>
@@ -287,26 +427,78 @@
     return `
     <div class="page-head"><div><h1>Směrnice &amp; Předpisy</h1></div></div>
     <div class="stack">
-      ${state.guidelines.map(g => `
+      ${Data.guidelines().map(g => `
         <div class="panel"><div class="panel-head"><h2>${esc(g.title)}</h2><span class="tag">${esc(g.category)}</span></div>
         <div class="panel-body"><p>${esc(g.content)}</p></div></div>
       `).join('') || '<div class="empty">Žádné směrnice.</div>'}
     </div>`;
   }
 
+  function viewMembers() {
+    return `
+    <div class="page-head"><div><h1>Seznam Členů z Discordu</h1></div></div>
+    <div class="panel"><div class="table-wrap"><table>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Odslouženo</th></tr></thead>
+      <tbody>
+        ${Data.members().map(m => `
+          <tr>
+            <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
+            <td>${esc(rankOf(m.rank).name)}</td>
+            <td>#${esc(m.number)}</td>
+            <td>${Math.floor((m.totalDutySeconds || 0) / 3600)} hod.</td>
+          </tr>`).join('')}
+      </tbody>
+    </table></div></div>`;
+  }
+
+  function viewAdmin() {
+    const pending = Data.incidents().filter(i => i.status === 'pending');
+    return `
+    <div class="page-head"><div><h1>Správa Vedení</h1></div></div>
+    <div class="panel">
+      <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
+      <ul class="inc-list">
+        ${pending.map(i => `
+          <li class="inc">
+            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
+            <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
+          </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
+      </ul>
+    </div>`;
+  }
+
   function renderView() {
+    const v = state.activeTab;
     const el = $('#view');
     if (!el) return;
-    if (state.activeTab === 'incidents') el.innerHTML = viewIncidents();
-    else if (state.activeTab === 'guidelines') el.innerHTML = viewGuidelines();
+
+    if (v === 'dashboard') el.innerHTML = viewDashboard();
+    else if (v === 'incidents') el.innerHTML = viewIncidents();
+    else if (v === 'guidelines') el.innerHTML = viewGuidelines();
+    else if (v === 'members') el.innerHTML = viewMembers();
+    else if (v === 'admin' && isLead(state.user)) el.innerHTML = viewAdmin();
     else el.innerHTML = viewDashboard();
   }
 
+  async function fetchDiscordMembers() {
+    try {
+      const res = await fetch('/api/members');
+      if (res.ok) {
+        const members = await res.json();
+        Data.syncMembers(members);
+      }
+    } catch (e) { console.error('Chyba synchronizace členů:', e); }
+  }
+
   async function renderApp() {
-    if (!state.user) return renderLogin();
-    await loadData();
+    const u = state.user;
+    if (!u) return renderLogin();
+
+    await fetchDiscordMembers();
 
     const root = $('#root');
+    if (!root) return;
+
     root.innerHTML = `
     <div class="app">
       <aside class="side">
@@ -320,16 +512,18 @@
           <a href="#/dashboard" class="${state.activeTab === 'dashboard' ? 'on' : ''}">Přehled</a>
           <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
           <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
+          <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
+          ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
         </nav>
         <div class="side-foot">
           <div class="me">
-            <img src="${state.user.avatar}" class="avatar" />
+            ${avatar(u)}
             <div>
-              <div class="me-name">${esc(state.user.name)}</div>
-              <div class="me-rank">${esc(rankOf(state.user.rank).name)}</div>
+              <div class="me-name">${esc(u.name)}</div>
+              <div class="me-rank">${esc(rankOf(u.rank).name)}</div>
             </div>
           </div>
-          <button onclick="logout()" class="btn sm danger" style="width:100%; justify-content:center;">Odhlásit se</button>
+          <button class="btn sm danger" data-act="logout" style="width:100%; justify-content:center;">Odhlásit se</button>
         </div>
       </aside>
       <main class="main" id="view"></main>
@@ -341,6 +535,7 @@
 
   function openNewIncidentModal() {
     closeModal();
+    const members = Data.members();
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
@@ -350,6 +545,11 @@
             <div class="field"><label>Místo zásahu</label><input type="text" id="i-loc" required /></div>
             <div class="field"><label>Typ události</label>
               <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</select>
+            </div>
+            <div class="field full"><label>Zasahující členové z Discordu</label>
+              <div class="check-box">
+                ${members.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" /> ${esc(m.name)}</label>`).join('')}
+              </div>
             </div>
             <div class="field full"><label>Popis</label><textarea id="i-desc" required></textarea></div>
           </form>
@@ -363,60 +563,115 @@
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
+  function handleLoginSuccess() {
+    const hash = window.location.hash;
+    if (hash.startsWith('#/login-success')) {
+      const urlParams = new URLSearchParams(hash.split('?')[1]);
+      const userRaw = urlParams.get('user');
+      if (userRaw) {
+        try {
+          const user = JSON.parse(decodeURIComponent(userRaw));
+          state.user = user;
+          sessionStorage.setItem('logged_user', JSON.stringify(user));
+          toast(`Vítej, ${user.name}!`);
+        } catch(e) { console.error(e); }
+      }
+      window.location.hash = '#/dashboard';
+    }
+  }
+
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-act]');
     if (!el) return;
     const act = el.dataset.act;
 
+    if (act === 'logout') {
+      state.user = null;
+      sessionStorage.removeItem('logged_user');
+      window.location.hash = '';
+      renderLogin();
+    }
+    if (act === 'toggle-duty') {
+      let u = Data.member(state.user.id) || state.user;
+      u.onDuty = !u.onDuty;
+      if (u.onDuty) {
+        u.dutyStart = Date.now();
+        toast('Nastoupil jsi do služby.');
+      } else {
+        if (u.dutyStart) {
+          const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
+          u.totalDutySeconds = (u.totalDutySeconds || 0) + diff;
+          u.dutyStart = null;
+        }
+        toast('Služba ukončena.');
+      }
+      Data.saveMember(u);
+
+      await syncDutyToDiscord();
+      renderApp();
+    }
     if (act === 'new-incident') openNewIncidentModal();
     if (act === 'close') closeModal();
     if (act === 'submit-inc') {
       const loc = $('#i-loc')?.value;
       const desc = $('#i-desc')?.value;
       const type = $('#i-type')?.value;
+      const selectedMembers = Array.from(document.querySelectorAll('input[name="m-check"]:checked')).map(cb => cb.value);
 
-      if (!loc || !desc) return toast('Vyplňte všechna pole.', true);
+      if (!loc || !desc) return toast('Vyplň všechna pole.', true);
 
       const inc = {
         id: uid(),
-        number: `VYJ-2026-000${state.incidents.length + 1}`,
+        number: `VYJ-2026-000${Data.incidents().length + 1}`,
         datetime: new Date().toISOString(),
-        type, 
-        location: loc,
+        type, location: loc,
+        units: ['CAS 20'],
+        memberIds: selectedMembers.length ? selectedMembers : [state.user.id],
+        commanderId: state.user.id,
         description: desc,
-        status: 'approved',
-        author_id: state.user.id
+        result: 'V řešení',
+        status: isLead(state.user) ? 'approved' : 'pending',
+        authorId: state.user.id
       };
 
-      await supabaseClient.from('incidents').insert([inc]);
+      Data.saveIncident(inc);
       closeModal();
-      toast('Výjezd uložen do Supabase.');
+
+      if (inc.status === 'pending') {
+        sendDiscordWebhook(CONFIG.WEBHOOK_INCIDENTS_PENDING, {
+          embeds: [{
+            title: '🚨 Nový výjezd ke schválení!',
+            description: `**Číslo:** ${inc.number}\n**Místo:** ${inc.location}\n**Zapsal:** ${state.user.name}`,
+            color: 15844367
+          }]
+        });
+        toast('Výjezd uložen a odebrán ke schválení.');
+      } else {
+        toast('Výjezd uložen.');
+      }
+
       renderApp();
     }
-  });
-
-  // KONTROLA RELACE SUPABASE PŘI NAČTENÍ
-  async function initAuth() {
-    const { data: { session } } = await supabaseClient.auth.getSession();
-    if (session) {
-      const u = session.user;
-      state.user = {
-        id: u.id,
-        name: u.user_metadata.full_name || u.user_metadata.name || 'Příslušník',
-        avatar: u.user_metadata.avatar_url || '',
-        rank: 'rotmajster'
-      };
+    if (act === 'approve-inc') {
+      const inc = Data.incidents().find(i => i.id === el.dataset.id);
+      if (inc) {
+        inc.status = 'approved';
+        Data.saveIncident(inc);
+        toast('Výjezd schválen.');
+        renderApp();
+      }
     }
-    renderApp();
-  }
+  });
 
   window.addEventListener('hashchange', () => {
+    handleLoginSuccess();
     const hash = window.location.hash.replace('#/', '');
-    if (hash) state.activeTab = hash;
+    if (hash && !hash.startsWith('login-success')) state.activeTab = hash;
     renderApp();
   });
 
-  initAuth();
+  handleLoginSuccess();
+  renderApp();
   // ]]>
   </script>
 </body>
