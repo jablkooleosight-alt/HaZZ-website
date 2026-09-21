@@ -78,7 +78,7 @@ app.get('/api/auth/callback', async (req, res) => {
       for (const roleId of memberData.roles) {
         if (ROLE_MAP[roleId]) {
           userRank = ROLE_MAP[roleId];
-          if (roleId === "1547544440170741810") {
+          if (roleId === "1547544440170741810" || ROLE_MAP[roleId] === "reditelstvi") {
             isLead = true;
           }
           break;
@@ -121,7 +121,7 @@ async function requireLeadRole(req, res, next) {
         });
 
         const memberRoles = guildMemberRes.data.roles || [];
-        const hasLeadRole = memberRoles.includes("1547544440170741810");
+        const hasLeadRole = memberRoles.includes("1547544440170741810") || memberRoles.some(r => ROLE_MAP[r] === 'reditelstvi');
 
         if (!hasLeadRole) {
             return res.status(403).json({ error: 'Přístup odepřen: Tuto akci může provést pouze vedení.' });
@@ -201,6 +201,33 @@ app.get('/api/guidelines', async (req, res) => {
   }
 });
 
+// Uložení / vytvoření směrnice
+app.post('/api/guidelines', requireLeadRole, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
+  try {
+    const { id, title, category, content, date } = req.body;
+    const { data, error } = await supabase.from('guidelines').upsert([{ id, title, category, content, date }]).select();
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Chyba při ukládání směrnice:', err.message);
+    res.status(500).json({ error: 'Nelze uložit směrnici.' });
+  }
+});
+
+// Smazání směrnice
+app.delete('/api/guidelines/:id', requireLeadRole, async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
+  try {
+    const { error } = await supabase.from('guidelines').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Chyba při mazání směrnice:', err.message);
+    res.status(500).json({ error: 'Nelze smazat směrnici.' });
+  }
+});
+
 // Načtení výjezdů ze Supabase
 app.get('/api/incidents', async (req, res) => {
   if (!supabase) return res.json([]);
@@ -214,7 +241,21 @@ app.get('/api/incidents', async (req, res) => {
   }
 });
 
-// Úprava výjezdu (pokud mění stav schválení nebo upravuje záznam, vyžaduje práva vedení, pokud jde o neschválený výjezd)
+// Vytvoření výjezdu
+app.post('/api/incidents', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
+  try {
+    const inc = req.body;
+    const { data, error } = await supabase.from('incidents').upsert([inc]).select();
+    if (error) throw error;
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Chyba při vytváření výjezdu:', err.message);
+    res.status(500).json({ error: 'Nelze uložit výjezd.' });
+  }
+});
+
+// Úprava výjezdu
 app.put('/api/incidents/:id', async (req, res) => {
   if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
   
@@ -222,7 +263,6 @@ app.put('/api/incidents/:id', async (req, res) => {
   const updates = req.body;
 
   try {
-    // Zjistíme aktuální stav výjezdu v databázi
     const { data: existing, error: fetchErr } = await supabase
       .from('incidents')
       .select('*')
@@ -233,22 +273,21 @@ app.put('/api/incidents/:id', async (req, res) => {
       return res.status(404).json({ error: 'Výjezd nenalezen.' });
     }
 
-    // Pokud je výjezd ve stavu "Čeká na schválení" nebo se mění status, ověříme zda má uživatel práva vedení
-    if (existing.status === 'Čeká na schválení' || updates.status) {
+    if (existing.status === 'pending' || existing.status === 'Čeká na schválení' || updates.status) {
       const userId = req.headers['x-user-id'];
       if (!userId) return res.status(401).json({ error: 'Neautorizováno.' });
 
       const guildMemberRes = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
         headers: { Authorization: `Bot ${BOT_TOKEN}` }
       });
-      const hasLeadRole = (guildMemberRes.data.roles || []).includes("1547544440170741810");
+      const memberRoles = guildMemberRes.data.roles || [];
+      const hasLeadRole = memberRoles.includes("1547544440170741810") || memberRoles.some(r => ROLE_MAP[r] === 'reditelstvi');
 
-      if (!hasLeadRole) {
+      if (!hasLeadRole && existing.commanderId !== userId) {
         return res.status(403).json({ error: 'Nemáš oprávnění upravovat nebo schvalovat tento výjezd.' });
       }
     }
 
-    // Provedeme aktualizaci v Supabase
     const { data, error: updateErr } = await supabase
       .from('incidents')
       .update(updates)
@@ -263,11 +302,24 @@ app.put('/api/incidents/:id', async (req, res) => {
   }
 });
 
+// Smazání výjezdu
+app.delete('/api/incidents/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
+  try {
+    const { error } = await supabase.from('incidents').delete().eq('id', req.params.id);
+    if (error) throw error;
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Chyba při mazání výjezdu:', err.message);
+    res.status(500).json({ error: 'Nelze smazat výjezd.' });
+  }
+});
+
 app.post('/api/duty-sync', async (req, res) => {
   const { activeMembers } = req.body;
   if (!DUTY_WEBHOOK_URL) return res.status(400).json({ error: 'Není nastaven Webhook' });
 
-  let listText = activeMembers.length > 0 
+  let listText = activeMembers && activeMembers.length > 0 
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
@@ -275,7 +327,7 @@ app.post('/api/duty-sync', async (req, res) => {
     embeds: [{
       title: '📋 Aktuální seznam ve službě (HZS)',
       description: listText,
-      color: activeMembers.length > 0 ? 3066993 : 15158332,
+      color: activeMembers && activeMembers.length > 0 ? 3066993 : 15158332,
       footer: { text: `Poslední aktualizace: ${new Date().toLocaleTimeString('cs-CZ')}` }
     }]
   };
