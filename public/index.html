@@ -433,34 +433,106 @@
         else DB.incidents.unshift(inc);
         persist();
       }
+      return ok;
     },
     async deleteIncident(id) {
       const ok = await Data.deleteIncidentApi(id);
       if (ok) DB.incidents = DB.incidents.filter(x => x.id !== id);
       persist();
+      return ok;
     },
-    saveVehicle(v) {
-      if (!DB.vehicles) DB.vehicles = [];
-      const idx = DB.vehicles.findIndex(x => x.id === v.id);
-      if (idx >= 0) DB.vehicles[idx] = v;
-      else DB.vehicles.push(v);
-      persist();
+    async fetchVehiclesFromApi() {
+      try {
+        const res = await fetch('/api/vehicles');
+        if (res.ok) {
+          const apiVehicles = await res.json();
+          if (Array.isArray(apiVehicles)) {
+            DB.vehicles = apiVehicles;
+            persist();
+          }
+        }
+      } catch (e) {}
     },
-    deleteVehicle(id) {
-      if (DB.vehicles) {
-        DB.vehicles = DB.vehicles.filter(x => x.id !== id);
+    async saveVehicle(v) {
+      const isEdit = (DB.vehicles || []).some(x => x.id === v.id);
+      let ok = false;
+      try {
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/vehicles/${v.id}` : '/api/vehicles';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(v)
+        });
+        if (res.ok) {
+          await Data.fetchVehiclesFromApi();
+          ok = true;
+        }
+      } catch (e) {}
+      if (!ok) {
+        if (!DB.vehicles) DB.vehicles = [];
+        const idx = DB.vehicles.findIndex(x => x.id === v.id);
+        if (idx >= 0) DB.vehicles[idx] = v;
+        else DB.vehicles.push(v);
         persist();
       }
+      return ok;
     },
-    saveGuideline(g) {
-      const idx = DB.guidelines.findIndex(x => x.id === g.id);
-      if (idx >= 0) DB.guidelines[idx] = g;
-      else DB.guidelines.push(g);
+    async deleteVehicle(id) {
+      let ok = false;
+      try {
+        const res = await fetch(`/api/vehicles/${id}`, { method: 'DELETE' });
+        ok = res.ok;
+      } catch (e) {}
+      if (ok && DB.vehicles) DB.vehicles = DB.vehicles.filter(x => x.id !== id);
       persist();
+      return ok;
     },
-    deleteGuideline(id) {
-      DB.guidelines = DB.guidelines.filter(x => x.id !== id);
+    async fetchGuidelinesFromApi() {
+      try {
+        const res = await fetch('/api/guidelines');
+        if (res.ok) {
+          const apiGuidelines = await res.json();
+          if (Array.isArray(apiGuidelines)) {
+            DB.guidelines = apiGuidelines;
+            persist();
+          }
+        }
+      } catch (e) {}
+    },
+    async saveGuideline(g) {
+      const isEdit = DB.guidelines.some(x => x.id === g.id);
+      let ok = false;
+      try {
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/guidelines/${g.id}` : '/api/guidelines';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(g)
+        });
+        if (res.ok) {
+          await Data.fetchGuidelinesFromApi();
+          ok = true;
+        }
+      } catch (e) {}
+      if (!ok) {
+        const idx = DB.guidelines.findIndex(x => x.id === g.id);
+        if (idx >= 0) DB.guidelines[idx] = g;
+        else DB.guidelines.push(g);
+        persist();
+      }
+      return ok;
+    },
+    async deleteGuideline(id) {
+      let ok = false;
+      try {
+        const res = await fetch(`/api/guidelines/${id}`, { method: 'DELETE' });
+        ok = res.ok;
+      } catch (e) {}
+      if (ok) DB.guidelines = DB.guidelines.filter(x => x.id !== id);
       persist();
+      return ok;
     },
     saveAnnouncement(a) {
       DB.announcements.unshift(a);
@@ -1029,6 +1101,8 @@
     if (!u) return renderLogin();
 
     await Data.fetchIncidentsFromApi();
+    await Data.fetchGuidelinesFromApi();
+    await Data.fetchVehiclesFromApi();
     await fetchDiscordMembers();
     applyThemeSettings();
 
@@ -1387,9 +1461,9 @@
       if (v) openNewVehicleModal(v);
     }
     if (act === 'confirm-delete-vehicle') {
-      openConfirmModal('Smazat vozidlo', 'Opravdu chcete toto vozidlo odstranit z evidence?', () => {
-        Data.deleteVehicle(el.dataset.id);
-        toast('Vozidlo smazáno.');
+      openConfirmModal('Smazat vozidlo', 'Opravdu chcete toto vozidlo odstranit z evidence?', async () => {
+        const ok = await Data.deleteVehicle(el.dataset.id);
+        toast(ok ? 'Vozidlo smazáno.' : 'Vozidlo se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1399,8 +1473,8 @@
     }
     if (act === 'confirm-delete-incident') {
       openConfirmModal('Smazat výjezd', 'Opravdu smazat tento výjezd?', async () => {
-        await Data.deleteIncident(el.dataset.id);
-        toast('Výjezd smazán.');
+        const ok = await Data.deleteIncident(el.dataset.id);
+        toast(ok ? 'Výjezd smazán.' : 'Výjezd se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1410,9 +1484,9 @@
       if (g) openGuidelineModal(g);
     }
     if (act === 'confirm-delete-guideline') {
-      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', () => {
-        Data.deleteGuideline(el.dataset.id);
-        toast('Směrnice smazána.');
+      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', async () => {
+        const ok = await Data.deleteGuideline(el.dataset.id);
+        toast(ok ? 'Směrnice smazána.' : 'Směrnici se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1472,9 +1546,9 @@
         id: editId || uid(),
         name, type, status, note
       };
-      Data.saveVehicle(v);
+      const vOk = await Data.saveVehicle(v);
       closeModal();
-      toast('Vozidlo úspěšně uloženo.');
+      toast(vOk ? 'Vozidlo úspěšně uloženo.' : 'Vozidlo se nepodařilo uložit na server (zkus to znovu).', !vOk);
       renderApp();
     }
     if (act === 'submit-inc') {
@@ -1502,9 +1576,9 @@
         authorId: state.user.id
       };
 
-      await Data.saveIncident(inc);
+      const incOk = await Data.saveIncident(inc);
       closeModal();
-      toast('Výjezd úspěšně uložen.');
+      toast(incOk ? 'Výjezd úspěšně uložen.' : 'Výjezd se nepodařilo uložit na server (zkus to znovu).', !incOk);
       renderApp();
     }
     if (act === 'submit-guideline') {
@@ -1519,9 +1593,9 @@
         title, category, content,
         date: new Date().toISOString()
       };
-      Data.saveGuideline(g);
+      const gOk = await Data.saveGuideline(g);
       closeModal();
-      toast('Směrnice uložena.');
+      toast(gOk ? 'Směrnice uložena.' : 'Směrnici se nepodařilo uložit na server (zkus to znovu).', !gOk);
       renderApp();
     }
     if (act === 'submit-member') {
