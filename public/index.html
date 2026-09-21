@@ -268,8 +268,8 @@
     WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
     DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC",
     // Doplňte své Supabase URL a klíč pro plnou synchronizaci mezi uživateli:
-    SUPABASE_URL: "https://hrkqnwazirarvabzvtzb.supabase.co",
-    SUPABASE_ANON_KEY: "sb_secret_7WxKNYlxYawlXTdqtzgnRg_1PE-C2yu"
+    SUPABASE_URL: "https://vasi-supabase-url.supabase.co",
+    SUPABASE_ANON_KEY: "vasi-supabase-anon-key"
   };
 
   // Inicializace Supabase klienta
@@ -391,20 +391,28 @@
     announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
     
-  async function fetchIncidentsFromApi() {
-    try {
+    async fetchIncidentsFromApi() {
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('incidents').select('*');
+          if (!error && data) {
+            DB.incidents = data;
+            persist();
+            return;
+          }
+        } catch (e) {}
+      }
+      try {
         const res = await fetch('/api/incidents');
         if (res.ok) {
-            const apiIncidents = await res.json();
-            if (Array.isArray(apiIncidents)) {
-                DB.incidents = apiIncidents;
-                persist();
-            }
+          const apiIncidents = await res.json();
+          if (Array.isArray(apiIncidents) && apiIncidents.length > 0) {
+            DB.incidents = apiIncidents;
+            persist();
+          }
         }
-    } catch (e) {
-        console.error("Chyba při načítání výjezdů:", e);
-    }
-}
+      } catch (e) {}
+    },
 
     async saveIncidentApi(incData, isEdit = false) {
       if (supabaseClient) {
@@ -414,29 +422,20 @@
         } catch (e) {}
       }
       try {
-  async function saveIncidentApi(incData, isEdit = false) {
-    try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
-
         const res = await fetch(url, {
-            method: method,
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(incData)
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(incData)
         });
-
         if (res.ok) {
-            return true;
-        } else {
-            const errData = await res.json();
-            console.error("Chyba serveru při ukládání výjezdu:", errData);
-            return false;
+          await Data.fetchIncidentsFromApi();
+          return true;
         }
-    } catch (e) {
-        console.error("Chyba při komunikaci se serverem:", e);
-        return false;
-    }
-}
+      } catch(e) {}
+      return false;
+    },
 
     async deleteIncidentApi(id) {
       if (supabaseClient) {
@@ -842,7 +841,7 @@
                 <td><b>${esc(v.name)}</b></td>
                 <td>${esc(v.type)}</td>
                 <td>${statusBadge}</td>
-                <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
+                <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
                   <td>
                     <div style="display:flex; gap:8px;">
                       <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
