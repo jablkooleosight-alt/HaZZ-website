@@ -283,11 +283,11 @@
     { key: 'reditelstvi', name: 'Ředitelství', level: 13 }
   ];
 
-  const LEAD_LEVEL = 6;
+  const LEAD_LEVEL = 4; // Praporčík a výše mají základní práva vedení / schvalování
   const INNER_LEAD_LEVEL = 9;
   const DIRECTOR_LEVEL = 10;
   const MAJOR_LEVEL = 10;
-  const AUTO_APPROVE_LEVEL = 6;
+  const AUTO_APPROVE_LEVEL = 4;
 
   const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
 
@@ -386,8 +386,21 @@
         const res = await fetch('/api/incidents');
         if (res.ok) {
           const apiIncidents = await res.json();
-          if (Array.isArray(apiIncidents) && apiIncidents.length > 0) {
+          if (Array.isArray(apiIncidents)) {
             DB.incidents = apiIncidents;
+            persist();
+          }
+        }
+      } catch (e) {}
+    },
+
+    async fetchGuidelinesFromApi() {
+      try {
+        const res = await fetch('/api/guidelines');
+        if (res.ok) {
+          const apiGuidelines = await res.json();
+          if (Array.isArray(apiGuidelines) && apiGuidelines.length > 0) {
+            DB.guidelines = apiGuidelines;
             persist();
           }
         }
@@ -396,11 +409,15 @@
 
     async saveIncidentApi(incData, isEdit = false) {
       try {
-        const method = isEdit ? 'PATCH' : 'POST';
+        const method = isEdit ? 'PUT' : 'POST';
         const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
+        const savedUser = JSON.parse(sessionStorage.getItem('logged_user') || '{}');
         const res = await fetch(url, {
           method: method,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': savedUser.id
+          },
           body: JSON.stringify(incData)
         });
         if (res.ok) {
@@ -413,9 +430,47 @@
 
     async deleteIncidentApi(id) {
       try {
-        const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
+        const savedUser = JSON.parse(sessionStorage.getItem('logged_user') || '{}');
+        const res = await fetch(`/api/incidents/${id}`, { 
+          method: 'DELETE',
+          headers: { 'x-user-id': savedUser.id }
+        });
         if (res.ok) {
           await Data.fetchIncidentsFromApi();
+          return true;
+        }
+      } catch(e) {}
+      return false;
+    },
+
+    async saveGuidelineApi(gData) {
+      try {
+        const savedUser = JSON.parse(sessionStorage.getItem('logged_user') || '{}');
+        const res = await fetch('/api/guidelines', {
+          method: 'POST',
+          headers: { 
+            'Content-Type': 'application/json',
+            'x-user-id': savedUser.id
+          },
+          body: JSON.stringify(gData)
+        });
+        if (res.ok) {
+          await Data.fetchGuidelinesFromApi();
+          return true;
+        }
+      } catch(e) {}
+      return false;
+    },
+
+    async deleteGuidelineApi(id) {
+      try {
+        const savedUser = JSON.parse(sessionStorage.getItem('logged_user') || '{}');
+        const res = await fetch(`/api/guidelines/${id}`, { 
+          method: 'DELETE',
+          headers: { 'x-user-id': savedUser.id }
+        });
+        if (res.ok) {
+          await Data.fetchGuidelinesFromApi();
           return true;
         }
       } catch(e) {}
@@ -430,23 +485,24 @@
       if (idx >= 0) DB.incidents[idx] = inc;
       else {
         DB.incidents.unshift(inc);
-        if (inc.status === 'approved') {
-          const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
-          const uniqueInvolved = [...new Set(involvedIds)];
-          uniqueInvolved.forEach(mId => {
-            const member = Data.member(mId);
-            if (member) {
-              if (!member.weeklyBonuses) member.weeklyBonuses = {};
-              let bonus = 0;
-              if (inc.type === 'pozar') {
-                bonus = Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200;
-              } else {
-                bonus = Math.floor(Math.random() * (1300 - 1000 + 1)) + 1000;
-              }
-              member.weeklyBonuses[inc.id] = bonus;
+      }
+
+      if (inc.status === 'approved') {
+        const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
+        const uniqueInvolved = [...new Set(involvedIds)];
+        uniqueInvolved.forEach(mId => {
+          const member = Data.member(mId);
+          if (member) {
+            if (!member.weeklyBonuses) member.weeklyBonuses = {};
+            let bonus = 0;
+            if (inc.type === 'pozar') {
+              bonus = Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200;
+            } else {
+              bonus = Math.floor(Math.random() * (1300 - 1000 + 1)) + 1000;
             }
-          });
-        }
+            member.weeklyBonuses[inc.id] = bonus;
+          }
+        });
       }
       persist();
     },
@@ -468,13 +524,15 @@
         persist();
       }
     },
-    saveGuideline(g) {
+    async saveGuideline(g) {
+      await Data.saveGuidelineApi(g);
       const idx = DB.guidelines.findIndex(x => x.id === g.id);
       if (idx >= 0) DB.guidelines[idx] = g;
       else DB.guidelines.push(g);
       persist();
     },
-    deleteGuideline(id) {
+    async deleteGuideline(id) {
+      await Data.deleteGuidelineApi(id);
       DB.guidelines = DB.guidelines.filter(x => x.id !== id);
       persist();
     },
@@ -535,7 +593,7 @@
     }
   }
 
-  const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
+  const isLead = u => u && (rankOf(u.rank).level >= LEAD_LEVEL || u.isLead);
   const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
   const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
   const isMajorOrHigher = u => u && rankOf(u.rank).level >= MAJOR_LEVEL;
@@ -773,7 +831,7 @@
                 <td><b>${esc(v.name)}</b></td>
                 <td>${esc(v.type)}</td>
                 <td>${statusBadge}</td>
-                <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
+               <td class="muted">${esc(v.note ?? '-')}</td>${isLead(u) ? `
                   <td>
                     <div style="display:flex; gap:8px;">
                       <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
@@ -984,11 +1042,11 @@
 
   async function fetchDiscordMembers() {
     try {
-        const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+        const savedUser = JSON.parse(sessionStorage.getItem('logged_user') || '{}');
         
         const response = await fetch('/api/members', {
             headers: {
-                'x-user-id': savedUser.id
+                'x-user-id': savedUser.id || ''
             }
         });
 
@@ -1003,12 +1061,12 @@
     }
 }
 
-
   async function renderApp() {
     const u = state.user;
     if (!u) return renderLogin();
 
     await Data.fetchIncidentsFromApi();
+    await Data.fetchGuidelinesFromApi();
     await fetchDiscordMembers();
     applyThemeSettings();
 
@@ -1389,8 +1447,8 @@
       if (g) openGuidelineModal(g);
     }
     if (act === 'confirm-delete-guideline') {
-      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', () => {
-        Data.deleteGuideline(el.dataset.id);
+      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', async () => {
+        await Data.deleteGuideline(el.dataset.id);
         toast('Směrnice smazána.');
         renderApp();
       });
@@ -1498,7 +1556,7 @@
         title, category, content,
         date: new Date().toISOString()
       };
-      Data.saveGuideline(g);
+      await Data.saveGuideline(g);
       closeModal();
       toast('Směrnice uložena.');
       renderApp();
