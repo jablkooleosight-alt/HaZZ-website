@@ -433,11 +433,13 @@
         else DB.incidents.unshift(inc);
         persist();
       }
+      return ok;
     },
     async deleteIncident(id) {
       const ok = await Data.deleteIncidentApi(id);
       if (ok) DB.incidents = DB.incidents.filter(x => x.id !== id);
       persist();
+      return ok;
     },
     saveVehicle(v) {
       if (!DB.vehicles) DB.vehicles = [];
@@ -452,15 +454,51 @@
         persist();
       }
     },
-    saveGuideline(g) {
-      const idx = DB.guidelines.findIndex(x => x.id === g.id);
-      if (idx >= 0) DB.guidelines[idx] = g;
-      else DB.guidelines.push(g);
-      persist();
+    async fetchGuidelinesFromApi() {
+      try {
+        const res = await fetch('/api/guidelines');
+        if (res.ok) {
+          const apiGuidelines = await res.json();
+          if (Array.isArray(apiGuidelines)) {
+            DB.guidelines = apiGuidelines;
+            persist();
+          }
+        }
+      } catch (e) {}
     },
-    deleteGuideline(id) {
-      DB.guidelines = DB.guidelines.filter(x => x.id !== id);
+    async saveGuideline(g) {
+      const isEdit = DB.guidelines.some(x => x.id === g.id);
+      let ok = false;
+      try {
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/guidelines/${g.id}` : '/api/guidelines';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(g)
+        });
+        if (res.ok) {
+          await Data.fetchGuidelinesFromApi();
+          ok = true;
+        }
+      } catch (e) {}
+      if (!ok) {
+        const idx = DB.guidelines.findIndex(x => x.id === g.id);
+        if (idx >= 0) DB.guidelines[idx] = g;
+        else DB.guidelines.push(g);
+        persist();
+      }
+      return ok;
+    },
+    async deleteGuideline(id) {
+      let ok = false;
+      try {
+        const res = await fetch(`/api/guidelines/${id}`, { method: 'DELETE' });
+        ok = res.ok;
+      } catch (e) {}
+      if (ok) DB.guidelines = DB.guidelines.filter(x => x.id !== id);
       persist();
+      return ok;
     },
     saveAnnouncement(a) {
       DB.announcements.unshift(a);
@@ -1029,6 +1067,7 @@
     if (!u) return renderLogin();
 
     await Data.fetchIncidentsFromApi();
+    await Data.fetchGuidelinesFromApi();
     await fetchDiscordMembers();
     applyThemeSettings();
 
@@ -1399,8 +1438,8 @@
     }
     if (act === 'confirm-delete-incident') {
       openConfirmModal('Smazat výjezd', 'Opravdu smazat tento výjezd?', async () => {
-        await Data.deleteIncident(el.dataset.id);
-        toast('Výjezd smazán.');
+        const ok = await Data.deleteIncident(el.dataset.id);
+        toast(ok ? 'Výjezd smazán.' : 'Výjezd se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1410,9 +1449,9 @@
       if (g) openGuidelineModal(g);
     }
     if (act === 'confirm-delete-guideline') {
-      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', () => {
-        Data.deleteGuideline(el.dataset.id);
-        toast('Směrnice smazána.');
+      openConfirmModal('Smazat směrnici', 'Opravdu chcete smazat tuto směrnici?', async () => {
+        const ok = await Data.deleteGuideline(el.dataset.id);
+        toast(ok ? 'Směrnice smazána.' : 'Směrnici se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1502,9 +1541,9 @@
         authorId: state.user.id
       };
 
-      await Data.saveIncident(inc);
+      const incOk = await Data.saveIncident(inc);
       closeModal();
-      toast('Výjezd úspěšně uložen.');
+      toast(incOk ? 'Výjezd úspěšně uložen.' : 'Výjezd se nepodařilo uložit na server (zkus to znovu).', !incOk);
       renderApp();
     }
     if (act === 'submit-guideline') {
@@ -1519,9 +1558,9 @@
         title, category, content,
         date: new Date().toISOString()
       };
-      Data.saveGuideline(g);
+      const gOk = await Data.saveGuideline(g);
       closeModal();
-      toast('Směrnice uložena.');
+      toast(gOk ? 'Směrnice uložena.' : 'Směrnici se nepodařilo uložit na server (zkus to znovu).', !gOk);
       renderApp();
     }
     if (act === 'submit-member') {

@@ -591,6 +591,19 @@ app.post('/api/guidelines', requireAuth, requireMinLevel(LEAD_LEVEL), requireSup
     }
 });
 
+app.patch('/api/guidelines/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupabase, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const body = { ...req.body };
+        delete body.id;
+        const { data, error } = await supabase.from('guidelines').update(body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
 app.delete('/api/guidelines/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupabase, async (req, res) => {
     try {
         const { id } = req.params;
