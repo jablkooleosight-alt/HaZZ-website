@@ -1,4 +1,4 @@
-    const express = require('express');
+const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
 const { createClient } = require('@supabase/supabase-js');
@@ -115,7 +115,6 @@ app.get('/api/members', async (req, res) => {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
 
-    // Filtrování členů: Zobrazí se pouze ti, kteří mají oficiální hodnost z ROLE_MAP (vývojáři bez hodnosti se odfiltrují)
     const members = response.data
       .map(m => {
         let rank = null;
@@ -188,6 +187,17 @@ app.post('/api/incidents', async (req, res) => {
     }
 });
 
+app.put('/api/incidents/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data, error } = await supabase.from('incidents').update(req.body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 app.patch('/api/incidents/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -210,6 +220,39 @@ app.delete('/api/incidents/:id', async (req, res) => {
     }
 });
 
+// ==================== SMĚRNICE (SUPABASE) ====================
+
+app.get('/api/guidelines', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('guidelines').select('*').order('date', { ascending: false });
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/guidelines', async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('guidelines').insert([req.body]).select();
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/guidelines/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('guidelines').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ==================== DISCORD DUTY SYNC ====================
 
 app.post('/api/duty-sync', async (req, res) => {
@@ -220,7 +263,6 @@ app.post('/api/duty-sync', async (req, res) => {
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
-  // Funkční datum a čas v českém formátu
   const currentDateTime = new Date().toLocaleString('cs-CZ', {
     dateStyle: 'short',
     timeStyle: 'medium'
