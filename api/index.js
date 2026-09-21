@@ -28,7 +28,6 @@ const ROLE_MAP = {
   "1404448934021300344": "nadrotmajster",
   "1404448934000201787": "rotmajster"
 };
-};
 
 let dutyMessageId = null;
 
