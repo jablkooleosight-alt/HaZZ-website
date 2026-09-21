@@ -34,6 +34,10 @@ const SESSION_COOKIE = 'hzs_session';
 const SESSION_TTL_MS = 12 * 60 * 60 * 1000; // 12 hodin
 const IS_SECURE_ENV = process.env.NODE_ENV === 'production' || !!process.env.VERCEL;
 
+// Discord role, která (nezávisle na hodnosti) opravňuje spravovat cizí výjezdy
+// (upravovat/mazat/schvalovat výjezdy zapsané jinými členy).
+const LEADERSHIP_ROLE_ID = '1404448933983420455';
+
 const ROLE_MAP = {
   "1547544440170741810": "reditelstvi",
   "1404448934050529290": "plk",
@@ -119,7 +123,7 @@ function parseCookies(req) {
 app.use((req, res, next) => {
   const cookies = parseCookies(req);
   const session = verifySession(cookies[SESSION_COOKIE]);
-  req.authUser = session ? { id: session.id, rank: session.rank, name: session.name } : null;
+  req.authUser = session ? { id: session.id, rank: session.rank, name: session.name, isLeadership: !!session.isLeadership } : null;
   next();
 });
 
@@ -216,6 +220,7 @@ app.get('/api/auth/callback', async (req, res) => {
         }
       }
     }
+    const isLeadership = Array.isArray(memberData.roles) && memberData.roles.includes(LEADERSHIP_ROLE_ID);
 
     const userData = {
       id: memberData.user.id,
@@ -223,15 +228,18 @@ app.get('/api/auth/callback', async (req, res) => {
       avatar: memberData.user.avatar
         ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
         : null,
-      rank: userRank
+      rank: userRank,
+      isLeadership
     };
 
-    // Server-side ověřená session - klient si SVOJI hodnost nemůže sám nastavit,
-    // veškerá autorizace na API se odvozuje z tohoto podepsaného cookie, ne z dat v URL.
+    // Server-side ověřená session - klient si SVOJI hodnost ani roli vedení
+    // nemůže sám nastavit, veškerá autorizace na API se odvozuje z tohoto
+    // podepsaného cookie, ne z dat v URL.
     const sessionToken = signSession({
       id: userData.id,
       rank: userRank,
       name: userData.name,
+      isLeadership,
       exp: Date.now() + SESSION_TTL_MS
     });
     res.cookie(SESSION_COOKIE, sessionToken, {
@@ -464,8 +472,8 @@ async function updateIncident(req, res) {
         if (!existing) return res.status(404).json({ error: 'Výjezd nenalezen.' });
 
         const isOwner = existing.commanderId === req.authUser.id;
-        const isLeadUser = rankLevel(req.authUser.rank) >= LEAD_LEVEL;
-        if (!isOwner && !isLeadUser) {
+        const isLeadership = !!req.authUser.isLeadership;
+        if (!isOwner && !isLeadership) {
             return res.status(403).json({ error: 'Nedostatečné oprávnění pro úpravu tohoto výjezdu.' });
         }
 
@@ -475,7 +483,7 @@ async function updateIncident(req, res) {
         delete body.authorId;
         delete body.number;
         // Schválit výjezd smí jen vedení - běžný člen tuto změnu nemůže protlačit.
-        if (body.status && body.status !== existing.status && body.status === 'approved' && !isLeadUser) {
+        if (body.status && body.status !== existing.status && body.status === 'approved' && !isLeadership) {
             delete body.status;
         }
 
@@ -501,8 +509,8 @@ app.delete('/api/incidents/:id', requireAuth, requireSupabase, async (req, res) 
         const existing = rows && rows[0];
         if (existing) {
             const isOwner = existing.commanderId === req.authUser.id;
-            const isLeadUser = rankLevel(req.authUser.rank) >= LEAD_LEVEL;
-            if (!isOwner && !isLeadUser) {
+            const isLeadership = !!req.authUser.isLeadership;
+            if (!isOwner && !isLeadership) {
                 return res.status(403).json({ error: 'Nedostatečné oprávnění pro smazání tohoto výjezdu.' });
             }
         }
