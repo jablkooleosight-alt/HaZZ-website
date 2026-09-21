@@ -1,14 +1,22 @@
-import { createClient } from '@supabase/supabase-js';
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
 
-const supabaseUrl = process.env.SUPABASE_URL || '';
-const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
-const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
+const app = express();
+app.use(cors());
+app.use(express.json());
 
-// Vaše reálné ID rolí
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
+const REDIRECT_URI = process.env.REDIRECT_URI;
+const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
+
 const ROLE_MAP = {
   "1547544440170741810": "reditelstvi",
   "1404448934050529290": "plk",
-  "1404448934021300353": "pplk",
+  "1404448934021300353": "pplk",    
   "1404448934021300352": "mjr",
   "1404448934021300351": "kpt",
   "1404448934021300350": "npor",
@@ -21,142 +29,132 @@ const ROLE_MAP = {
   "1404448934000201787": "rotmajster"
 };
 
-// Hierarchie od nejvyšší hodnosti po nejnižší
-const ROLE_HIERARCHY = [
-  "1547544440170741810", // reditelstvi
-  "1404448934050529290", // plk
-  "1404448934021300353", // pplk
-  "1404448934021300352", // mjr
-  "1404448934021300351", // kpt
-  "1404448934021300350", // npor
-  "1404448934021300349", // por
-  "1404448934021300348", // ppor
-  "1404448934021300347", // nadpraporcik
-  "1404448934021300346", // praporcik
-  "1404448934021300345", // podpraporcik
-  "1404448934021300344", // nadrotmajster
-  "1404448934000201787"  // rotmajster
-];
+let dutyMessageId = null;
 
-function getMemberHighestRankIndex(userRoleIds) {
-  for (let i = 0; i < ROLE_HIERARCHY.length; i++) {
-    if (userRoleIds.includes(ROLE_HIERARCHY[i])) return i;
+app.get('/api/auth/url', (req, res) => {
+  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
+  res.json({ url });
+});
+
+app.get('/api/auth/callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send('Chybí kód.');
+
+  try {
+    const tokenParams = new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: REDIRECT_URI
+    });
+
+    const tokenRes = await axios.post('https://discord.com/api/v10/oauth2/token', tokenParams, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const accessToken = tokenRes.data.access_token;
+
+    const memberRes = await axios.get(`https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    const memberData = memberRes.data;
+    
+    let userRank = 'rotmajster';
+    if (memberData.roles) {
+      for (const roleId of memberData.roles) {
+        if (ROLE_MAP[roleId]) {
+          userRank = ROLE_MAP[roleId];
+          break;
+        }
+      }
+    }
+
+    const userData = {
+      id: memberData.user.id,
+      name: memberData.nick || memberData.user.global_name || memberData.user.username,
+      avatar: memberData.user.avatar 
+        ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
+        : null,
+      rank: userRank
+    };
+
+    const encodedUser = encodeURIComponent(JSON.stringify(userData));
+    res.redirect(`/#/login-success?user=${encodedUser}`);
+
+  } catch (err) {
+    console.error('Chyba při autentizaci:', err.response?.data || err.message);
+    res.redirect('/?error=auth_failed');
   }
-  return 999;
-}
+});
 
-export default async function handler(req, res) {
-  const { action, id } = req.query;
+app.get('/api/members', async (req, res) => {
+  try {
+    const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
+      headers: { Authorization: `Bot ${BOT_TOKEN}` }
+    });
 
-  // --- 1. ČLENOVÉ Z DISCORDU ---
-  if (req.method === 'GET' && (!action || action === 'members')) {
+    const members = response.data.map(m => {
+      let rank = 'rotmajster';
+      for (const roleId of m.roles) {
+        if (ROLE_MAP[roleId]) {
+          rank = ROLE_MAP[roleId];
+          break;
+        }
+      }
+      return {
+        id: m.user.id,
+        name: m.nick || m.user.global_name || m.user.username,
+        rank: rank,
+        number: m.user.id.slice(-3),
+        joined: m.joined_at,
+        avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
+      };
+    });
+
+    res.json(members);
+  } catch (err) {
+    console.error('Chyba při načítání členů:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Nelze načíst členy z Discordu.' });
+  }
+});
+
+app.post('/api/duty-sync', async (req, res) => {
+  const { activeMembers } = req.body;
+  if (!DUTY_WEBHOOK_URL) return res.status(400).json({ error: 'Není nastaven Webhook' });
+
+  let listText = activeMembers.length > 0 
+    ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
+    : '_Momentálně není nikdo ve službě._';
+
+  const embedPayload = {
+    embeds: [{
+      title: '📋 Aktuální seznam ve službě (HZS)',
+      description: listText,
+      color: activeMembers.length > 0 ? 3066993 : 15158332,
+      footer: { text: `Poslední aktualizace: ${new Date().toLocaleTimeString('cs-CZ')}` }
+    }]
+  };
+
+  try {
+    if (dutyMessageId) {
+      await axios.patch(`${DUTY_WEBHOOK_URL}/messages/${dutyMessageId}`, embedPayload);
+    } else {
+      const resp = await axios.post(`${DUTY_WEBHOOK_URL}?wait=true`, embedPayload);
+      dutyMessageId = resp.data.id;
+    }
+    res.json({ success: true });
+  } catch (err) {
     try {
-      const membersRes = await fetch(`https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/members?limit=1000`, {
-        headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` }
-      });
-      if (!membersRes.ok) throw new Error('Discord API Error');
-      const members = await membersRes.json();
-
-      const rolesRes = await fetch(`https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/roles`, {
-        headers: { Authorization: `Bot ${process.env.DISCORD_BOT_TOKEN}` }
-      });
-      const rolesData = await rolesRes.json();
-      const rolesMap = {};
-      rolesData.forEach(r => { rolesMap[r.id] = r.name; });
-
-      const formatted = members
-        .filter(m => !m.user.bot)
-        .map(m => {
-          const mRoleNames = m.roles.map(rId => rolesMap[rId] || ROLE_MAP[rId] || rId);
-          return {
-            id: m.user.id,
-            username: m.user.username,
-            displayName: m.nick || m.user.global_name || m.user.username,
-            avatar: m.user.avatar 
-              ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` 
-              : 'https://cdn.discordapp.com/embed/avatars/0.png',
-            roles: mRoleNames,
-            rawRoleIds: m.roles
-          };
-        });
-
-      // Řazení členů od nejvyšší po nejnižší hodnost
-      formatted.sort((a, b) => getMemberHighestRankIndex(a.rawRoleIds) - getMemberHighestRankIndex(b.rawRoleIds));
-
-      return res.status(200).json(formatted);
-    } catch (err) {
-      return res.status(500).json({ error: 'Failed to fetch members' });
+      const resp = await axios.post(`${DUTY_WEBHOOK_URL}?wait=true`, embedPayload);
+      dutyMessageId = resp.data.id;
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Chyba aktualizace služby na Discordu:', e.message);
+      res.status(500).json({ error: 'Chyba webhooku' });
     }
   }
+});
 
-  // --- 2. OZNÁMENÍ ---
-  if (action === 'oznameni') {
-    if (!supabase) return res.status(200).json([]);
-    if (req.method === 'GET') {
-      const { data } = await supabase.from('oznameni').select('*').order('created_at', { ascending: false });
-      return res.status(200).json(data || []);
-    }
-    if (req.method === 'POST') {
-      const { title, content, author } = req.body;
-      const { data } = await supabase.from('oznameni').insert([{ title, content, author }]).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'PUT') {
-      const { id: reqId, title, content, author } = req.body;
-      const { data } = await supabase.from('oznameni').update({ title, content, author }).eq('id', reqId).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'DELETE') {
-      await supabase.from('oznameni').delete().eq('id', id);
-      return res.status(200).json({ success: true });
-    }
-  }
-
-  // --- 3. SMĚRNICE ---
-  if (action === 'smernice') {
-    if (!supabase) return res.status(200).json([]);
-    if (req.method === 'GET') {
-      const { data } = await supabase.from('smernice').select('*').order('created_at', { ascending: false });
-      return res.status(200).json(data || []);
-    }
-    if (req.method === 'POST') {
-      const { title, category, content } = req.body;
-      const { data } = await supabase.from('smernice').insert([{ title, category, content }]).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'PUT') {
-      const { id: reqId, title, category, content } = req.body;
-      const { data } = await supabase.from('smernice').update({ title, category, content }).eq('id', reqId).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'DELETE') {
-      await supabase.from('smernice').delete().eq('id', id);
-      return res.status(200).json({ success: true });
-    }
-  }
-
-  // --- 4. VÝJEZDY ---
-  if (action === 'vyjezdy') {
-    if (!supabase) return res.status(200).json([]);
-    if (req.method === 'GET') {
-      const { data } = await supabase.from('vyjezdy').select('*').order('date', { ascending: false });
-      return res.status(200).json(data || []);
-    }
-    if (req.method === 'POST') {
-      const { title, location, date, description } = req.body;
-      const { data } = await supabase.from('vyjezdy').insert([{ title, location, date, description }]).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'PUT') {
-      const { id: reqId, title, location, date, description } = req.body;
-      const { data } = await supabase.from('vyjezdy').update({ title, location, date, description }).eq('id', reqId).select();
-      return res.status(200).json(data ? data[0] : {});
-    }
-    if (req.method === 'DELETE') {
-      await supabase.from('vyjezdy').delete().eq('id', id);
-      return res.status(200).json({ success: true });
-    }
-  }
-
-  return res.status(404).json({ error: 'Not found' });
-}
+module.exports = app;
