@@ -242,13 +242,10 @@
     try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch (e) {}
   };
 
-  // Kontrola týdenního resetu prémií (od neděle do neděle, reset v pondělí 00:00)
   function checkWeeklyBonusReset() {
     const now = new Date();
     const lastReset = new Date(DB.weeklyBonusReset || now);
-    
-    // Zjistit pondělí aktuálního týdne nebo porovnat, zda proběhl přechod do nového týdne (pondělí)
-    const dayOfWeek = now.getDay(); // 0 = neděle, 1 = pondělí...
+    const dayOfWeek = now.getDay();
     if (dayOfWeek === 1 && (now - lastReset) > 7 * 24 * 3600 * 1000) {
       DB.members.forEach(m => m.weeklyBonuses = {});
       DB.weeklyBonusReset = now.toISOString();
@@ -314,8 +311,6 @@
       if (idx >= 0) DB.incidents[idx] = inc;
       else {
         DB.incidents.unshift(inc);
-        // Generování prémií při novém výjezdu
-        // Požár má větší šanci na vyšší prémie, ostatní méně
         if (inc.memberIds) {
           inc.memberIds.forEach(mId => {
             const member = Data.member(mId);
@@ -323,10 +318,8 @@
               if (!member.weeklyBonuses) member.weeklyBonuses = {};
               let bonus = 0;
               if (inc.type === 'pozar') {
-                // Požár: větší šance, částka mezi 1200 a 1500 €
                 bonus = Math.floor(Math.random() * (1500 - 1200 + 1)) + 1200;
               } else {
-                // Ostatní: menší šance/rozmezí 1000 až 1300 €
                 bonus = Math.floor(Math.random() * (1300 - 1000 + 1)) + 1000;
               }
               member.weeklyBonuses[inc.id] = bonus;
@@ -394,7 +387,6 @@
     customColor: localStorage.getItem('custom_color') || '#e63b2e'
   };
 
-  // Aplikování uložené barvy
   function applyThemeSettings() {
     if (state.theme === 'light') {
       document.body.classList.add('light-theme');
@@ -783,9 +775,16 @@
           ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
         </nav>
         <div class="side-foot">
-          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 0;">
+          <div style="display:flex; align-items:center; justify-content:space-between; gap:6px; padding:4px 0; position:relative;">
             <button class="btn sm" data-act="toggle-theme" title="Přepnout režim">${state.theme === 'dark' ? '☀️ Světlý' : '🌙 Tmavý'}</button>
-            <input type="color" id="color-picker" value="${state.customColor}" title="Vlastní barva" style="width:36px; height:32px; border:1px solid var(--line); border-radius:var(--radius); background:none; cursor:pointer;" />
+            <div style="position:relative;">
+              <button class="btn sm" data-act="toggle-color-picker" title="Vlastní barva">🎨 Barva</button>
+              <div id="color-picker-popover" style="display:none; position:absolute; bottom:100%; right:0; margin-bottom:8px; background:var(--panel-2); border:1px solid var(--line); border-radius:var(--radius); padding:10px; box-shadow:0 4px 12px rgba(0,0,0,0.3); z-index:10; display:none; flex-direction:column; gap:8px; width:140px;">
+                <label style="font-size:0.75rem; color:var(--muted);">Vlastní barva:</label>
+                <input type="color" id="color-picker" value="${state.customColor}" style="width:100%; height:32px; border:1px solid var(--line); border-radius:var(--radius); background:none; cursor:pointer;" />
+                <button class="btn sm" data-act="reset-color" style="width:100%; justify-content:center;">Výchozí</button>
+              </div>
+            </div>
           </div>
           <div class="me">
             ${avatar(u)}
@@ -951,13 +950,34 @@
 
   document.addEventListener('click', async e => {
     const el = e.target.closest('[data-act]');
-    if (!el) return;
+    if (!el) {
+      // Zavření okénka s barvou při kliknutí mimo
+      const popover = $('#color-picker-popover');
+      if (popover && !e.target.closest('#color-picker-popover') && !e.target.closest('[data-act="toggle-color-picker"]')) {
+        popover.style.display = 'none';
+      }
+      return;
+    }
     const act = el.dataset.act;
 
     if (act === 'toggle-theme') {
       state.theme = state.theme === 'dark' ? 'light' : 'dark';
       localStorage.setItem('theme', state.theme);
       renderApp();
+    }
+    if (act === 'toggle-color-picker') {
+      const popover = $('#color-picker-popover');
+      if (popover) {
+        popover.style.display = popover.style.display === 'flex' ? 'none' : 'flex';
+      }
+    }
+    if (act === 'reset-color') {
+      state.customColor = '#e63b2e';
+      localStorage.setItem('custom_color', state.customColor);
+      applyThemeSettings();
+      const picker = $('#color-picker');
+      if (picker) picker.value = '#e63b2e';
+      toast('Barva resetována do výchozího stavu.');
     }
     if (act === 'logout') {
       state.user = null;
