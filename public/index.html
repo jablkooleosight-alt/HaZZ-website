@@ -615,6 +615,9 @@
   }
 
   const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
+  // Právo upravovat/mazat/schvalovat CIZÍ výjezdy - nezávisí na hodnosti,
+  // jen na konkrétní Discord roli "vedení" (server to enforcuje stejně).
+  const canManageOthersIncidents = u => !!(u && u.isLeadership);
   const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
   const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
   const isMajorOrHigher = u => u && rankOf(u.rank).level >= MAJOR_LEVEL;
@@ -841,7 +844,7 @@
               <td>
                 <div style="display:flex; gap:8px;">
                   <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
-                  ${(isLead(u) || i.commanderId === u.id) ? `
+                  ${(canManageOthersIncidents(u) || i.commanderId === u.id) ? `
                     <button class="btn sm" data-act="edit-incident" data-id="${i.id}">Upravit</button>
                     <button class="btn sm danger" data-act="confirm-delete-incident" data-id="${i.id}">Smazat</button>
                   ` : ''}
@@ -1014,7 +1017,7 @@
             <li class="inc" style="grid-template-columns: 6px 1fr auto;">
               <span class="bar t-pozar"></span>
               <span><b>${esc(i.number)}</b> — Místo: ${esc(i.location)}<br><small class="muted">Zapsal: ${esc(Data.member(i.commanderId)?.name || 'Neznámý')}</small></span>
-              <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
+              <span>${canManageOthersIncidents(state.user) ? `<button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button>` : '<span class="muted" style="font-size:0.82rem;">Jen vedení</span>'}</span>
             </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
         </ul>
       </div>
@@ -1623,8 +1626,8 @@
       const inc = Data.incidents().find(i => i.id === el.dataset.id);
       if (inc) {
         inc.status = 'approved';
-        await Data.saveIncident(inc);
-        toast('Výjezd schválena.');
+        const ok = await Data.saveIncident(inc);
+        toast(ok ? 'Výjezd schválen.' : 'Výjezd se nepodařilo schválit (chybí oprávnění vedení?).', !ok);
         renderApp();
       }
     }
