@@ -1,30 +1,49 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Inicializace Supabase klienta
+// Supabase klient
 const supabaseUrl = process.env.SUPABASE_URL || '';
 const supabaseKey = process.env.SUPABASE_ANON_KEY || process.env.SUPABASE_KEY || '';
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
 
-// Pořadí hodností pro řazení členů (od nejvyšší po nejnižší)
-const ROLE_ORDER = [
-  'Ředitelství',
-  'Plukovník (plk.)',
-  'Podplukovník (pplk.)',
-  'Major (mjr.)',
-  'Kapitán (kpt.)',
-  'Nadporučík (npor.)',
-  'Poručík (por.)',
-  'Vedení',
-  'Velitel',
-  'Zástupce velitele',
-  'Hasič',
-  'Nováček'
+// Reálné ID rolí přesně podle vašeho nastavení
+const ROLE_MAP = {
+  "1547544440170741810": "reditelstvi",
+  "1404448934050529290": "plk",
+  "1404448934021300353": "pplk",
+  "1404448934021300352": "mjr",
+  "1404448934021300351": "kpt",
+  "1404448934021300350": "npor",
+  "1404448934021300349": "por",
+  "1404448934021300348": "ppor",
+  "1404448934021300347": "nadpraporcik",
+  "1404448934021300346": "praporcik",
+  "1404448934021300345": "podpraporcik",
+  "1404448934021300344": "nadrotmajster",
+  "1404448934000201787": "rotmajster"
+};
+
+// Seznam ID rolí seřazený podle hierarchie (od nejvyšší po nejnižší)
+const ROLE_HIERARCHY = [
+  "1547544440170741810", // reditelstvi
+  "1404448934050529290", // plk
+  "1404448934021300353", // pplk
+  "1404448934021300352", // mjr
+  "1404448934021300351", // kpt
+  "1404448934021300350", // npor
+  "1404448934021300349", // por
+  "1404448934021300348", // ppor
+  "1404448934021300347", // nadpraporcik
+  "1404448934021300346", // praporcik
+  "1404448934021300345", // podpraporcik
+  "1404448934021300344", // nadrotmajster
+  "1404448934000201787"  // rotmajster
 ];
 
-function getRoleRank(roles) {
-  if (!roles || roles.length === 0) return 999;
-  for (let i = 0; i < ROLE_ORDER.length; i++) {
-    if (roles.includes(ROLE_ORDER[i])) return i;
+function getMemberHighestRankIndex(userRoleIds) {
+  for (let i = 0; i < ROLE_HIERARCHY.length; i++) {
+    if (userRoleIds.includes(ROLE_HIERARCHY[i])) {
+      return i;
+    }
   }
   return 999;
 }
@@ -32,7 +51,7 @@ function getRoleRank(roles) {
 export default async function handler(req, res) {
   const { action, id } = req.query;
 
-  // --- 1. NAČTENÍ ČLENŮ Z DISCORDU SE ŘAZENÍM PODLE HODNOSTÍ ---
+  // --- 1. ČLENOVÉ Z DISCORDU SE SEŘAZENÍM PODLE ID ROLÍ ---
   if (req.method === 'GET' && (!action || action === 'members')) {
     try {
       const membersRes = await fetch(`https://discord.com/api/v10/guilds/${process.env.DISCORD_GUILD_ID}/members?limit=1000`, {
@@ -51,7 +70,7 @@ export default async function handler(req, res) {
       const formatted = members
         .filter(m => !m.user.bot)
         .map(m => {
-          const mRoles = m.roles.map(rId => rolesMap[rId] || rId);
+          const mRoleNames = m.roles.map(rId => rolesMap[rId] || ROLE_MAP[rId] || rId);
           return {
             id: m.user.id,
             username: m.user.username,
@@ -59,12 +78,13 @@ export default async function handler(req, res) {
             avatar: m.user.avatar 
               ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` 
               : 'https://cdn.discordapp.com/embed/avatars/0.png',
-            roles: mRoles
+            roles: mRoleNames,
+            rawRoleIds: m.roles
           };
         });
 
-      // Seřazení členů hodnostně
-      formatted.sort((a, b) => getRoleRank(a.roles) - getRoleRank(b.roles));
+      // Seřazení členů podle definované hierarchie ID rolí
+      formatted.sort((a, b) => getMemberHighestRankIndex(a.rawRoleIds) - getMemberHighestRankIndex(b.rawRoleIds));
 
       return res.status(200).json(formatted);
     } catch (err) {
@@ -73,7 +93,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // --- 2. SUPABASE: OZNÁMENÍ (GET / POST / PUT / DELETE) ---
+  // --- 2. SUPABASE: OZNÁMENÍ ---
   if (action === 'oznameni') {
     if (!supabase) return res.status(200).json([]);
 
@@ -84,15 +104,15 @@ export default async function handler(req, res) {
     }
 
     if (req.method === 'POST') {
-      const { title, content, author, priority } = req.body;
-      const { data, error } = await supabase.from('oznameni').insert([{ title, content, author, priority }]).select();
+      const { title, content, author } = req.body;
+      const { data, error } = await supabase.from('oznameni').insert([{ title, content, author }]).select();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json(data[0]);
     }
 
     if (req.method === 'PUT') {
-      const { id: reqId, title, content, author, priority } = req.body;
-      const { data, error } = await supabase.from('oznameni').update({ title, content, author, priority }).eq('id', reqId).select();
+      const { id: reqId, title, content, author } = req.body;
+      const { data, error } = await supabase.from('oznameni').update({ title, content, author }).eq('id', reqId).select();
       if (error) return res.status(500).json({ error: error.message });
       return res.status(200).json(data[0]);
     }
@@ -104,7 +124,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // --- 3. SUPABASE: SMĚRNICE (GET / POST / PUT / DELETE) ---
+  // --- 3. SUPABASE: SMĚRNICE ---
   if (action === 'smernice') {
     if (!supabase) return res.status(200).json([]);
 
@@ -135,7 +155,7 @@ export default async function handler(req, res) {
     }
   }
 
-  // --- 4. SUPABASE: VÝJEZDY (GET / POST / PUT / DELETE) ---
+  // --- 4. SUPABASE: VÝJEZDY ---
   if (action === 'vyjezdy') {
     if (!supabase) return res.status(200).json([]);
 
