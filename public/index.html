@@ -696,7 +696,7 @@
               <td>
                 ${Object.keys(bonuses).length ? Object.entries(bonuses).map(([incId, amount]) => {
                   const inc = Data.incidents().find(i => i.id === incId);
-                  return `<div style="font-size:0.85rem; color:var(--muted);">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b></div>`;
+                  return `<div style="font-size:0.85rem; color:var(--muted); display:flex; align-items:center; gap:6px; margin-bottom:4px;">• ${inc ? esc(inc.number) : 'Výjezd'}: <b style="color:var(--text);">${amount} €</b> <button class="btn sm danger" style="padding:0 4px; font-size:0.7rem;" data-act="confirm-delete-bonus" data-member-id="${m.id}" data-inc-id="${incId}">✕</button></div>`;
                 }).join('') : '<span class="muted">Zatím žádné prémie</span>'}
               </td>
               <td><b style="color:var(--green); font-size:1.1rem;">${total} €</b></td>
@@ -1079,6 +1079,19 @@
         }
       });
     }
+    if (act === 'confirm-delete-bonus') {
+      const mId = el.dataset.memberId;
+      const incId = el.dataset.incId;
+      openConfirmModal('Smazat prémii', 'Opravdu chcete tuto prémii smazat?', () => {
+        const m = Data.member(mId);
+        if (m && m.weeklyBonuses) {
+          delete m.weeklyBonuses[incId];
+          Data.saveMember(m);
+          toast('Prémie smazána.');
+          renderApp();
+        }
+      });
+    }
     if (act === 'close') closeModal();
     if (act === 'submit-inc') {
       const editId = el.dataset.id;
@@ -1194,4 +1207,3 @@
   </script>
 </body>
 </html>
-```[cite: 3]
