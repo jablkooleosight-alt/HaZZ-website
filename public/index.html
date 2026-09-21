@@ -201,7 +201,12 @@
   const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const $ = sel => document.querySelector(sel);
   const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('cs-CZ') : '-';
-  const fmtDT = iso => iso ? `${new Date(iso).toLocaleDateString('cs-CZ')} ${new Date(iso).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : '-';
+  const fmtDT = iso => {
+    if (!iso) return '-';
+    const d = new Date(iso);
+    if (isNaN(d.getTime())) return '-';
+    return `${d.toLocaleDateString('cs-CZ')} ${d.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}`;
+  };
   const uid = () => Math.random().toString(36).slice(2, 10);
   const initials = name => (name || 'U N').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
 
@@ -293,12 +298,12 @@
       } catch(e) { console.error('Chyba mazání výjezdu:', e); }
     },
 
-    saveIncident(inc) {
+    async saveIncident(inc) {
       const isEdit = DB.incidents.some(x => x.id === inc.id);
-      Data.saveIncidentApi(inc, isEdit);
+      await Data.saveIncidentApi(inc, isEdit);
     },
-    deleteIncident(id) {
-      Data.deleteIncidentApi(id);
+    async deleteIncident(id) {
+      await Data.deleteIncidentApi(id);
     },
     saveGuideline(g) {
       const idx = DB.guidelines.findIndex(x => x.id === g.id);
@@ -465,11 +470,11 @@
     const nowTime = now.getTime();
     const inc7Days = allIncidents.filter(i => {
       const d = new Date(i.datetime).getTime();
-      return (nowTime - d) <= (7 * 24 * 60 * 60 * 1000);
+      return !isNaN(d) && (nowTime - d) <= (7 * 24 * 60 * 60 * 1000);
     });
     const inc30Days = allIncidents.filter(i => {
       const d = new Date(i.datetime).getTime();
-      return (nowTime - d) <= (30 * 24 * 60 * 60 * 1000);
+      return !isNaN(d) && (nowTime - d) <= (30 * 24 * 60 * 60 * 1000);
     });
 
     return `
@@ -901,7 +906,7 @@
     }
     if (act === 'delete-incident') {
       if (confirm('Opravdu smazat tento výjezd?')) {
-        Data.deleteIncident(el.dataset.id);
+        await Data.deleteIncident(el.dataset.id);
         toast('Výjezd smazán.');
         renderApp();
       }
@@ -956,7 +961,7 @@
         authorId: state.user.id
       };
 
-      Data.saveIncident(inc);
+      await Data.saveIncident(inc);
       closeModal();
       toast('Výjezd úspěšně uložen.');
       renderApp();
@@ -1015,7 +1020,7 @@
       const inc = Data.incidents().find(i => i.id === el.dataset.id);
       if (inc) {
         inc.status = 'approved';
-        Data.saveIncident(inc);
+        await Data.saveIncident(inc);
         toast('Výjezd schválen.');
         renderApp();
       }
@@ -1032,7 +1037,6 @@
     renderApp();
   });
 
-  // Pokud je uživatel přihlášen, nastav počáteční hash podle uložené pozice
   if (state.user && !window.location.hash) {
     window.location.hash = `#/${state.activeTab}`;
   }
