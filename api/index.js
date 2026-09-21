@@ -32,7 +32,7 @@ const ROLE_MAP = {
   "1404448934021300347": "nadpraporcik",
   "1404448934021300346": "praporcik",
   "1404448934021300345": "podpraporcik",
-  "1404448934021300344": "nadrotmajster",
+  "1404448934000201744": "nadrotmajster",
   "1404448934000201787": "rotmajster"
 };
 
@@ -111,7 +111,7 @@ app.get('/api/auth/callback', async (req, res) => {
 
 app.get('/api/members', async (req, res) => {
   try {
-    // 1. Získání členů z Discordu (jako zdroj identit a hodností)
+    // 1. Získání členů z Discordu (jako zdroj identit, jmen a hodností)
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
@@ -138,7 +138,7 @@ app.get('/api/members', async (req, res) => {
       })
       .filter(m => m !== null);
 
-    // 2. Načtení stavu služeb a časů ze Supabase
+    // 2. Načtení stavu služeb, odpracovaných časů a historie ze Supabase
     const { data: dbMembers, error: dbError } = await supabase.from('members').select('*');
     if (dbError) {
       console.error('Chyba při načítání dat členů ze Supabase:', dbError.message);
@@ -151,14 +151,34 @@ app.get('/api/members', async (req, res) => {
       });
     }
 
-    // 3. Spojení Discord identit s databázovými stavy služby
+    // 3. Spojení Discord identit s databázovými stavy služby, aby byly totožné pro všechny
     const mergedMembers = discordMembers.map(dm => {
       const stored = dbMap[dm.id] || {};
+      
+      // Pokud uživatel v DB ještě není, automaticky ho do DB registrujeme, aby měl záznam
+      if (!dbMap[dm.id]) {
+        supabase.from('members').insert([{
+          id: dm.id,
+          name: dm.name,
+          rank: dm.rank,
+          number: dm.number,
+          joined: dm.joined,
+          avatar: dm.avatar,
+          on_duty: false,
+          duty_start: null,
+          total_duty_seconds: 0,
+          duties_history: [],
+          weekly_bonuses: []
+        }]).then(({ error }) => {
+          if (error) console.error(`Chyba při automatickém vytvoření člena ${dm.name}:`, error.message);
+        });
+      }
+
       return {
         ...dm,
-        on_duty: stored.on_duty || false,
-        duty_start: stored.duty_start || null,
-        total_duty_seconds: stored.total_duty_seconds || 0,
+        on_duty: stored.on_duty !== undefined ? stored.on_duty : false,
+        duty_start: stored.duty_start !== undefined ? stored.duty_start : null,
+        total_duty_seconds: stored.total_duty_seconds !== undefined ? stored.total_duty_seconds : 0,
         duties_history: stored.duties_history || [],
         weekly_bonuses: stored.weekly_bonuses || []
       };
@@ -184,10 +204,12 @@ app.post('/api/members', async (req, res) => {
 app.put('/api/members/:id', async (req, res) => {
     try {
         const { id } = req.params;
+        // Provedeme pokus o aktualizaci v Supabase
         const { data, error } = await supabase.from('members').update(req.body).eq('id', id).select();
         if (error) throw error;
+        
+        // Pokud záznam v tabulce members neexistuje, vytvoříme ho (upsert logika)
         if (!data || data.length === 0) {
-            // Pokud záznam v DB ještě neexistuje, vytvoříme ho (upsert)
             const insertPayload = { id, ...req.body };
             const { data: insData, error: insError } = await supabase.from('members').insert([insertPayload]).select();
             if (insError) throw insError;
@@ -204,6 +226,7 @@ app.patch('/api/members/:id', async (req, res) => {
         const { id } = req.params;
         const { data, error } = await supabase.from('members').update(req.body).eq('id', id).select();
         if (error) throw error;
+        
         if (!data || data.length === 0) {
             const insertPayload = { id, ...req.body };
             const { data: insData, error: insError } = await supabase.from('members').insert([insertPayload]).select();
