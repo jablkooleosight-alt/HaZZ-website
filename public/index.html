@@ -320,6 +320,11 @@
     return {
       members: [],
       incidents: [],
+      vehicles: [
+        { id: 'v1', name: 'CAS 20 - Tatra 815', type: 'Cisternová automobilová stříkačka', status: 'funkčni', note: 'Připraveno na výjezd' },
+        { id: 'v2', name: 'AZ 30 - Iveco', type: 'Automobilový žebřík', status: 'funkčni', note: 'Plná výbava' },
+        { id: 'v3', name: 'DA - Volkswagen Transporter', type: 'Dopravní automobil', status: 'oprava', note: 'V servisu - výměna brzd' }
+      ],
       guidelines: [
         { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'obecné směrnice', date: new Date().toISOString() }
       ],
@@ -357,6 +362,7 @@
     members: () => DB.members || [],
     member: id => DB.members.find(m => m.id === id) || null,
     incidents: () => DB.incidents || [],
+    vehicles: () => DB.vehicles || [],
     guidelines: () => DB.guidelines || [],
     announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
@@ -434,6 +440,19 @@
       await Data.deleteIncidentApi(id);
       DB.incidents = DB.incidents.filter(x => x.id !== id);
       persist();
+    },
+    saveVehicle(v) {
+      if (!DB.vehicles) DB.vehicles = [];
+      const idx = DB.vehicles.findIndex(x => x.id === v.id);
+      if (idx >= 0) DB.vehicles[idx] = v;
+      else DB.vehicles.push(v);
+      persist();
+    },
+    deleteVehicle(id) {
+      if (DB.vehicles) {
+        DB.vehicles = DB.vehicles.filter(x => x.id !== id);
+        persist();
+      }
     },
     saveGuideline(g) {
       const idx = DB.guidelines.findIndex(x => x.id === g.id);
@@ -717,6 +736,42 @@
     </div>`;
   }
 
+  function viewVehicles() {
+    const u = state.user;
+    const vehicles = Data.vehicles();
+
+    return `
+    <div class="page-head">
+      <div><h1>Kniha jízd / Správa vozového parku</h1><p>Přehled služebních vozidel a jejich technického stavu</p></div>
+      ${isLead(u) ? '<button class="btn primary" data-act="new-vehicle">+ Přidat vozidlo</button>' : ''}
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Název vozidla</th><th>Typ / Určení</th><th>Stav</th><th>Poznámka / Umístění</th>${isLead(u) ? '<th>Akce</th>' : ''}</tr></thead>
+        <tbody>
+          ${vehicles.map(v => {
+            let statusBadge = '<span class="tag approved">Funkční</span>';
+            if (v.status === 'oprava') statusBadge = '<span class="tag pending">V opravě</span>';
+            if (v.status === 'poskozene') statusBadge = '<span class="tag" style="color:var(--red); border-color:var(--red);">Poškozené</span>';
+            return `
+              <tr>
+                <td><b>${esc(v.name)}</b></td>
+                <td>${esc(v.type)}</td>
+                <td>${statusBadge}</td>
+                <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
+                  <td>
+                    <div style="display:flex; gap:6px;">
+                      <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
+                      <button class="btn sm danger" data-act="confirm-delete-vehicle" data-id="${v.id}">Smazat</button>
+                    </div>
+                  </td>` : ''}
+              </tr>`;
+          }).join('') || '<tr><td colspan="5" class="empty">Žádná vozidla v evidenci.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+  }
+
   function viewMemberIncidentsStats() {
     const members = Data.members();
     const incidents = Data.incidents();
@@ -904,6 +959,7 @@
 
     if (v === 'dashboard') el.innerHTML = viewDashboard();
     else if (v === 'incidents') el.innerHTML = viewIncidents();
+    else if (v === 'vehicles') el.innerHTML = viewVehicles();
     else if (v === 'member-stats') el.innerHTML = viewMemberIncidentsStats();
     else if (v === 'guidelines') el.innerHTML = viewGuidelines();
     else if (v === 'members') el.innerHTML = viewMembers();
@@ -945,6 +1001,7 @@
         <nav class="nav">
           <a href="#/dashboard" class="${state.activeTab === 'dashboard' ? 'on' : ''}">Přehled</a>
           <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
+          <a href="#/vehicles" class="${state.activeTab === 'vehicles' ? 'on' : ''}">Garáž / Vozidla</a>
           <a href="#/member-stats" class="${state.activeTab === 'member-stats' ? 'on' : ''}">Evidence osob</a>
           <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
           <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
@@ -1002,12 +1059,41 @@
     };
   }
 
+  function openNewVehicleModal(editV = null) {
+    closeModal();
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal">
+        <div class="modal-head"><h2>${editV ? 'Upravit vozidlo' : 'Přidat nové vozidlo'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
+        <div class="modal-body">
+          <form class="form-grid" onsubmit="event.preventDefault()">
+            <div class="field"><label>Název / Volací znak</label><input type="text" id="v-name" value="${editV ? esc(editV.name) : ''}" required /></div>
+            <div class="field"><label>Typ vozidla</label><input type="text" id="v-type" value="${editV ? esc(editV.type) : ''}" required /></div>
+            <div class="field"><label>Stav</label>
+              <select id="v-status">
+                <option value="funkčni" ${editV && editV.status === 'funkčni' ? 'selected' : ''}>Funkční</option>
+                <option value="oprava" ${editV && editV.status === 'oprava' ? 'selected' : ''}>V opravě</option>
+                <option value="poskozene" ${editV && editV.status === 'poskozene' ? 'selected' : ''}>Poškozené</option>
+              </select>
+            </div>
+            <div class="field full"><label>Poznámka / Umístění</label><input type="text" id="v-note" value="${editV ? esc(editV.note) : ''}" /></div>
+          </form>
+        </div>
+        <div class="modal-foot">
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" data-act="submit-vehicle" data-id="${editV ? editV.id : ''}" type="button">Uložit</button>
+        </div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
   function openNewIncidentModal(editInc = null) {
     closeModal();
     const members = Data.members();
     const otherMembers = members.filter(m => m.id !== (editInc ? editInc.commanderId : state.user.id));
 
-    html = `
+    let html = `
     <div class="overlay" id="overlay">
       <div class="modal">
         <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
@@ -1245,6 +1331,18 @@
     if (act === 'new-incident') openNewIncidentModal();
     if (act === 'open-incident-detail') openIncidentDetailModal(el.dataset.id);
     if (act === 'open-member-incidents-modal') openMemberIncidentsModal(el.dataset.id);
+    if (act === 'new-vehicle') openNewVehicleModal();
+    if (act === 'edit-vehicle') {
+      const v = Data.vehicles().find(x => x.id === el.dataset.id);
+      if (v) openNewVehicleModal(v);
+    }
+    if (act === 'confirm-delete-vehicle') {
+      openConfirmModal('Smazat vozidlo', 'Opravdu chcete toto vozidlo odstranit z evidence?', () => {
+        Data.deleteVehicle(el.dataset.id);
+        toast('Vozidlo smazáno.');
+        renderApp();
+      });
+    }
     if (act === 'edit-incident') {
       const inc = Data.incidents().find(x => x.id === el.dataset.id);
       if (inc) openNewIncidentModal(inc);
@@ -1312,6 +1410,23 @@
       });
     }
     if (act === 'close') closeModal();
+    if (act === 'submit-vehicle') {
+      const editId = el.dataset.id;
+      const name = $('#v-name')?.value;
+      const type = $('#v-type')?.value;
+      const status = $('#v-status')?.value;
+      const note = $('#v-note')?.value;
+      if (!name || !type) return toast('Vyplň název a typ vozidla.', true);
+
+      const v = {
+        id: editId || uid(),
+        name, type, status, note
+      };
+      Data.saveVehicle(v);
+      closeModal();
+      toast('Vozidlo úspěšně uloženo.');
+      renderApp();
+    }
     if (act === 'submit-inc') {
       const editId = el.dataset.id;
       const loc = $('#i-loc')?.value;
