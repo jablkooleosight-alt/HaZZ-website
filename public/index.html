@@ -391,28 +391,20 @@
     announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
     
-    async fetchIncidentsFromApi() {
-      if (supabaseClient) {
-        try {
-          const { data, error } = await supabaseClient.from('incidents').select('*');
-          if (!error && data) {
-            DB.incidents = data;
-            persist();
-            return;
-          }
-        } catch (e) {}
-      }
-      try {
+  async function fetchIncidentsFromApi() {
+    try {
         const res = await fetch('/api/incidents');
         if (res.ok) {
-          const apiIncidents = await res.json();
-          if (Array.isArray(apiIncidents) && apiIncidents.length > 0) {
-            DB.incidents = apiIncidents;
-            persist();
-          }
+            const apiIncidents = await res.json();
+            if (Array.isArray(apiIncidents)) {
+                DB.incidents = apiIncidents;
+                persist();
+            }
         }
-      } catch (e) {}
-    },
+    } catch (e) {
+        console.error("Chyba při načítání výjezdů:", e);
+    }
+}
 
     async saveIncidentApi(incData, isEdit = false) {
       if (supabaseClient) {
@@ -422,20 +414,29 @@
         } catch (e) {}
       }
       try {
+  async function saveIncidentApi(incData, isEdit = false) {
+    try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
+
         const res = await fetch(url, {
-          method: method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(incData)
+            method: method,
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(incData)
         });
+
         if (res.ok) {
-          await Data.fetchIncidentsFromApi();
-          return true;
+            return true;
+        } else {
+            const errData = await res.json();
+            console.error("Chyba serveru při ukládání výjezdu:", errData);
+            return false;
         }
-      } catch(e) {}
-      return false;
-    },
+    } catch (e) {
+        console.error("Chyba při komunikaci se serverem:", e);
+        return false;
+    }
+}
 
     async deleteIncidentApi(id) {
       if (supabaseClient) {
