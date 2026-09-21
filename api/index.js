@@ -115,23 +115,29 @@ app.get('/api/members', async (req, res) => {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
 
-    const members = response.data.map(m => {
-      let rank = 'rotmajster';
-      for (const roleId of m.roles) {
-        if (ROLE_MAP[roleId]) {
-          rank = ROLE_MAP[roleId];
-          break;
+    // Zpracování a filtrování: Zobrazí se pouze ti, kteří mají některou z oficiálních hodností z ROLE_MAP
+    const members = response.data
+      .map(m => {
+        let rank = null;
+        for (const roleId of m.roles) {
+          if (ROLE_MAP[roleId]) {
+            rank = ROLE_MAP[roleId];
+            break;
+          }
         }
-      }
-      return {
-        id: m.user.id,
-        name: m.nick || m.user.global_name || m.user.username,
-        rank: rank,
-        number: m.user.id.slice(-3),
-        joined: m.joined_at,
-        avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
-      };
-    });
+        // Pokud uživatel nemá žádnou platnou hodnost z ROLE_MAP, vynecháme ho
+        if (!rank) return null;
+
+        return {
+          id: m.user.id,
+          name: m.nick || m.user.global_name || m.user.username,
+          rank: rank,
+          number: m.user.id.slice(-3),
+          joined: m.joined_at,
+          avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
+        };
+      })
+      .filter(m => m !== null); // Odstraní null položky (uživatele bez platné hodnosti)
 
     res.json(members);
   } catch (err) {
@@ -150,7 +156,6 @@ app.post('/api/members', async (req, res) => {
     }
 });
 
-// Nový koncový bod pro mazání členů ze Supabase
 app.delete('/api/members/:id', async (req, res) => {
     try {
         const { id } = req.params;
@@ -195,6 +200,18 @@ app.patch('/api/incidents/:id', async (req, res) => {
     }
 });
 
+// Endpoint pro mazání výjezdů ze Supabase
+app.delete('/api/incidents/:id', async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('incidents').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
 // ==================== DISCORD DUTY SYNC ====================
 
 app.post('/api/duty-sync', async (req, res) => {
@@ -205,7 +222,7 @@ app.post('/api/duty-sync', async (req, res) => {
     ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
     : '_Momentálně není nikdo ve službě._';
 
-  // Dynamický aktuální datum a čas (funkční, ne statický)
+  // Dynamický aktuální datum a čas v českém formátu
   const currentDateTime = new Date().toLocaleString('cs-CZ', {
     dateStyle: 'short',
     timeStyle: 'medium'
