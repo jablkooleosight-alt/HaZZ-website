@@ -136,7 +136,6 @@
     .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
     .toast.err { border-left-color: var(--red); }
 
-    /* MODERNIZOVANÁ PŘIHLAŠOVACÍ STRÁNKA */
     .login {
       min-height: 100vh;
       display: grid;
@@ -404,8 +403,11 @@
       if (idx >= 0) DB.incidents[idx] = inc;
       else {
         DB.incidents.unshift(inc);
-        if (inc.memberIds && inc.status === 'approved') {
-          inc.memberIds.forEach(mId => {
+        if (inc.status === 'approved') {
+          // Započítat bonusy pro velitele i spolúčastněné
+          const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
+          const uniqueInvolved = [...new Set(involvedIds)];
+          uniqueInvolved.forEach(mId => {
             const member = Data.member(mId);
             if (member) {
               if (!member.weeklyBonuses) member.weeklyBonuses = {};
@@ -590,7 +592,8 @@
   function viewDashboard() {
     const u = state.user;
     const allIncidents = Data.incidents();
-    const myIncidents = allIncidents.filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+    // Zobrazí výjezdy, kde je uživatel buď velitel (autor/zapisovatel), nebo spolúčastněný
+    const myIncidents = allIncidents.filter(i => isLead(u) || i.commanderId === u.id || (i.memberIds && i.memberIds.includes(u.id)));
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
     const dbUser = Data.member(u.id) || u;
@@ -640,7 +643,7 @@
     <div style="display:grid; grid-template-columns: 2fr 1fr; gap:20px;">
       <div>
         <div class="panel">
-          <div class="panel-head"><h2>Poslední výjezdy</h2>${isLead(u) ? '<button class="btn primary sm" data-act="new-incident">+ Zapsat výjezd</button>' : ''}</div>
+          <div class="panel-head"><h2>Poslední výjezdy</h2><button class="btn primary sm" data-act="new-incident">+ Zapsat výjezd</button></div>
           <ul class="inc-list">
             ${myIncidents.slice(0, 6).map(i => `
               <li class="inc" data-act="open-incident-detail" data-id="${i.id}">
@@ -676,18 +679,19 @@
 
     return `
     <div class="page-head">
-      <div><h1>Výjezdy pro vedení</h1><p>Správa a přehled všech výjezdů</p></div>
-      ${isLead(u) ? '<button class="btn primary" data-act="new-incident">Zapsat výjezd</button>' : ''}
+      <div><h1>Výjezdy</h1><p>Správa a přehled všech výjezdů</p></div>
+      <button class="btn primary" data-act="new-incident">Zapsat výjezd</button>
     </div>
     <div class="panel">
       <div class="table-wrap"><table>
-        <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th><th>Status</th><th>Akce</th></tr></thead>
+        <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Velitel (Zapisovatel)</th><th>Datum</th><th>Status</th><th>Akce</th></tr></thead>
         <tbody>
           ${list.map(i => `
             <tr>
               <td><b>${esc(i.number)}</b></td>
               <td>${esc(TYPES[i.type]?.name || i.type)}</td>
               <td>${esc(i.location)}</td>
+              <td>${esc(Data.member(i.commanderId)?.name || 'Neznámý')}</td>
               <td>${fmtDT(i.datetime)}</td>
               <td>
                 ${i.status === 'approved' ? '<span class="tag approved">Schváleno</span>' : '<span class="tag pending">Čeká na schválení</span>'}
@@ -695,13 +699,47 @@
               <td>
                 <div style="display:flex; gap:6px;">
                   <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
-                  ${isLead(u) ? `
+                  ${(isLead(u) || i.commanderId === u.id) ? `
                     <button class="btn sm" data-act="edit-incident" data-id="${i.id}">Upravit</button>
                     <button class="btn sm danger" data-act="confirm-delete-incident" data-id="${i.id}">Smazat</button>
                   ` : ''}
                 </div>
               </td>
-            </tr>`).join('') || '<tr><td colspan="6" class="empty">Žádné výjezdy.</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="7" class="empty">Žádné výjezdy.</td></tr>'}
+        </tbody>
+      </table></div>
+    </div>`;
+  }
+
+  // Nová sekce: Evidence výjezdů na konkrétní lidi (Statistika / Přehled osob)
+  function viewMemberIncidentsStats() {
+    const members = Data.members();
+    const incidents = Data.incidents();
+
+    return `
+    <div class="page-head">
+      <div><h1>Evidence výjezdů na členy</h1><p>Celkový přehled výjezdů rozepsaný na jednotlivé osoby (velitel vs. spolúčastněný)</p></div>
+    </div>
+    <div class="panel">
+      <div class="table-wrap"><table>
+        <thead><tr><th>Člen</th><th>Hodnost</th><th>Jako velitel</th><th>Jako spolúčastněný</th><th>Celkem výjezdů</th><th>Akce</th></tr></thead>
+        <tbody>
+          ${members.map(m => {
+            const asCommander = incidents.filter(i => i.commanderId === m.id);
+            const asCo = incidents.filter(i => i.memberIds && i.memberIds.includes(m.id));
+            const total = asCommander.length + asCo.length;
+            return `
+              <tr>
+                <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
+                <td>${esc(rankOf(m.rank).name)}</td>
+                <td><span class="tag approved">${asCommander.length}x</span></td>
+                <td><span class="tag pending">${asCo.length}x</span></td>
+                <td><b>${total}</b></td>
+                <td>
+                  <button class="btn sm" data-act="open-member-incidents-modal" data-id="${m.id}">Zobrazit seznam</button>
+                </td>
+              </tr>`;
+          }).join('')}
         </tbody>
       </table></div>
     </div>`;
@@ -724,7 +762,6 @@
     </div>
 
     <div style="display:grid; grid-template-columns: 260px 1fr; gap:24px; align-items:start;">
-      <!-- Boční panel kategorií -->
       <div class="panel" style="padding:12px; display:flex; flex-direction:column; gap:4px; position:sticky; top:20px;">
         <div style="padding:8px 12px; font-size:0.75rem; text-transform:uppercase; color:var(--muted); font-weight:700;">Divize a kategorie</div>
         ${categories.map(cat => {
@@ -738,7 +775,6 @@
         }).join('')}
       </div>
 
-      <!-- Hlavní obsah směrnic -->
       <div style="display:flex; flex-direction:column; gap:16px;">
         <div style="display:flex; justify-content:space-between; align-items:center; background:var(--panel); border:1px solid var(--line); border-radius:var(--radius); padding:12px 18px;">
           <div style="font-size:0.9rem; color:var(--muted);">Zobrazena kategorie: <b style="color:var(--text); text-transform:capitalize;">${esc(currentCat)}</b></div>
@@ -856,6 +892,7 @@
 
     if (v === 'dashboard') el.innerHTML = viewDashboard();
     else if (v === 'incidents') el.innerHTML = viewIncidents();
+    else if (v === 'member-stats') el.innerHTML = viewMemberIncidentsStats();
     else if (v === 'guidelines') el.innerHTML = viewGuidelines();
     else if (v === 'members') el.innerHTML = viewMembers();
     else if (v === 'bonuses' && isMajorOrHigher(state.user)) el.innerHTML = viewBonuses();
@@ -896,6 +933,7 @@
         <nav class="nav">
           <a href="#/dashboard" class="${state.activeTab === 'dashboard' ? 'on' : ''}">Přehled</a>
           <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
+          <a href="#/member-stats" class="${state.activeTab === 'member-stats' ? 'on' : ''}">Evidence osob</a>
           <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
           <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
           ${isMajorOrHigher(u) ? `<a href="#/bonuses" class="${state.activeTab === 'bonuses' ? 'on' : ''}">Prémie</a>` : ''}
@@ -955,7 +993,10 @@
   function openNewIncidentModal(editInc = null) {
     closeModal();
     const members = Data.members();
-    const html = `
+    // Pokud editujeme, vynecháme přihlášeného uživatele z checkboxů, abychom ho neopakovali (velitel se nastavuje automaticky)
+    const otherMembers = members.filter(m => m.id !== (editInc ? editInc.commanderId : state.user.id));
+
+    html = `
     <div class="overlay" id="overlay">
       <div class="modal">
         <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
@@ -965,9 +1006,14 @@
             <div class="field"><label>Typ události</label>
               <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${editInc && editInc.type === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select>
             </div>
-            <div class="field full"><label>Zasahující členové z Discordu</label>
+            <div class="field full">
+              <div style="background:var(--bg); padding:10px 12px; border-radius:var(--radius); border:1px solid var(--line); font-size:0.9rem;">
+                <b>Velitel zásahu:</b> ${esc(editInc ? Data.member(editInc.commanderId)?.name : state.user.name)} <span class="muted">(Ty jako zapisovatel)</span>
+              </div>
+            </div>
+            <div class="field full"><label>Spolúčastnění členové (nepovinné)</label>
               <div class="check-box">
-                ${members.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" ${editInc && editInc.memberIds && editInc.memberIds.includes(m.id) ? 'checked' : ''} />${esc(m.name)}</label>`).join('')}
+                ${otherMembers.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" ${editInc && editInc.memberIds && editInc.memberIds.includes(m.id) ? 'checked' : ''} />${esc(m.name)}</label>`).join('')}
               </div>
             </div>
             <div class="field full"><label>Popis</label><textarea id="i-desc" required>${editInc ? esc(editInc.description) : ''}</textarea></div>
@@ -986,6 +1032,9 @@
     closeModal();
     const inc = Data.incidents().find(i => i.id === id);
     if (!inc) return;
+
+    const coMembers = (inc.memberIds || []).map(mId => Data.member(mId)?.name).filter(Boolean);
+
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
@@ -995,8 +1044,51 @@
           <div><b>Místo:</b> ${esc(inc.location)}</div>
           <div><b>Datum:</b> ${fmtDT(inc.datetime)}</div>
           <div><b>Velitel zásahu:</b> ${esc(Data.member(inc.commanderId)?.name || 'Neznámý')}</div>
+          <div><b>Spolúčastnění členové:</b> ${coMembers.length ? coMembers.join(', ') : '<span class="muted">Žádní</span>'}</div>
           <div><b>Status:</b> ${inc.status === 'approved' ? 'Schváleno' : 'Čeká na schválení'}</div>
           <div><b>Popis:</b><p style="background:var(--bg); padding:10px; border-radius:var(--radius); margin-top:4px;">${esc(inc.description)}</p></div>
+        </div>
+        <div class="modal-foot"><button class="btn primary" data-act="close" type="button">Zavřít</button></div>
+      </div>
+    </div>`;
+    document.body.insertAdjacentHTML('beforeend', html);
+  }
+
+  // Modální okno pro rozkliknutí výjezdů konkrétní osoby v evidenci
+  function openMemberIncidentsModal(memberId) {
+    closeModal();
+    const member = Data.member(memberId);
+    if (!member) return;
+    const incidents = Data.incidents();
+
+    const asCommander = incidents.filter(i => i.commanderId === member.id);
+    const asCo = incidents.filter(i => i.memberIds && i.memberIds.includes(member.id));
+
+    const html = `
+    <div class="overlay" id="overlay">
+      <div class="modal" style="width:min(750px, 100%);">
+        <div class="modal-head"><h2>Výjezdy člena: ${esc(member.name)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
+        <div class="modal-body" style="display:flex; flex-direction:column; gap:20px;">
+          <div>
+            <h3 style="margin-bottom:8px; font-size:1.1rem; color:var(--red);">Jako velitel (${asCommander.length})</h3>
+            ${asCommander.length ? `
+              <div class="table-wrap"><table>
+                <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th></tr></thead>
+                <tbody>
+                  ${asCommander.map(i => `<tr><td><b>${esc(i.number)}</b></td><td>${esc(TYPES[i.type]?.name || i.type)}</td><td>${esc(i.location)}</td><td>${fmtDT(i.datetime)}</td></tr>`).join('')}
+                </tbody>
+              </table></div>` : '<p class="muted">Žádné výjezdy v roli velitele.</p>'}
+          </div>
+          <div>
+            <h3 style="margin-bottom:8px; font-size:1.1rem; color:var(--amber);">Jako spolúčastněný (${asCo.length})</h3>
+            ${asCo.length ? `
+              <div class="table-wrap"><table>
+                <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th></tr></thead>
+                <tbody>
+                  ${asCo.map(i => `<tr><td><b>${esc(i.number)}</b></td><td>${esc(TYPES[i.type]?.name || i.type)}</td><td>${esc(i.location)}</td><td>${fmtDT(i.datetime)}</td></tr>`).join('')}
+                </tbody>
+              </table></div>` : '<p class="muted">Žádné výjezdy v roli spolúčastněného.</p>'}
+          </div>
         </div>
         <div class="modal-foot"><button class="btn primary" data-act="close" type="button">Zavřít</button></div>
       </div>
@@ -1137,6 +1229,7 @@
     }
     if (act === 'new-incident') openNewIncidentModal();
     if (act === 'open-incident-detail') openIncidentDetailModal(el.dataset.id);
+    if (act === 'open-member-incidents-modal') openMemberIncidentsModal(el.dataset.id);
     if (act === 'edit-incident') {
       const inc = Data.incidents().find(x => x.id === el.dataset.id);
       if (inc) openNewIncidentModal(inc);
@@ -1221,8 +1314,8 @@
         datetime: existingInc ? existingInc.datetime : new Date().toISOString(),
         type, location: loc,
         units: ['CAS 20'],
-        memberIds: selectedMembers.length ? selectedMembers : [state.user.id],
-        commanderId: state.user.id,
+        memberIds: selectedMembers, // Spolúčastnění členové
+        commanderId: existingInc ? existingInc.commanderId : state.user.id, // Zapisovatel je automaticky velitelem
         description: desc,
         result: 'V řešení',
         status: userRankOk ? 'approved' : 'pending',
