@@ -7,6 +7,8 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <!-- Supabase JS Client -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <style>
     :root {
       --bg: #0b0e14;
@@ -264,8 +266,16 @@
   // <![CDATA[
   const CONFIG = {
     WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
-    DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC"
+    DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC",
+    // Doplňte své Supabase URL a klíč pro plnou synchronizaci mezi uživateli:
+    SUPABASE_URL: "https://hrkqnwazirarvabzvtzb.supabase.co",
+    SUPABASE_ANON_KEY: "sb_secret_7WxKNYlxYawlXTdqtzgnRg_1PE-C2yu"
   };
+
+  // Inicializace Supabase klienta
+  const supabaseClient = (CONFIG.SUPABASE_URL && CONFIG.SUPABASE_URL.startsWith('http')) 
+    ? supabase.createClient(CONFIG.SUPABASE_URL, CONFIG.SUPABASE_ANON_KEY) 
+    : null;
 
   const RANKS = [
     { key: 'rotmajster', name: 'Rotmajster', level: 1 },
@@ -382,6 +392,16 @@
     divisions: () => DB.divisions || [],
     
     async fetchIncidentsFromApi() {
+      if (supabaseClient) {
+        try {
+          const { data, error } = await supabaseClient.from('incidents').select('*');
+          if (!error && data) {
+            DB.incidents = data;
+            persist();
+            return;
+          }
+        } catch (e) {}
+      }
       try {
         const res = await fetch('/api/incidents');
         if (res.ok) {
@@ -395,6 +415,12 @@
     },
 
     async saveIncidentApi(incData, isEdit = false) {
+      if (supabaseClient) {
+        try {
+          const { error } = await supabaseClient.from('incidents').upsert([incData]);
+          if (!error) return true;
+        } catch (e) {}
+      }
       try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/incidents/${incData.id}` : '/api/incidents';
@@ -412,6 +438,12 @@
     },
 
     async deleteIncidentApi(id) {
+      if (supabaseClient) {
+        try {
+          const { error } = await supabaseClient.from('incidents').delete().eq('id', id);
+          if (!error) return true;
+        } catch (e) {}
+      }
       try {
         const res = await fetch(`/api/incidents/${id}`, { method: 'DELETE' });
         if (res.ok) {
@@ -482,11 +514,28 @@
       DB.announcements.unshift(a);
       persist();
     },
-    saveMember(m) {
+    async saveMember(m) {
       const idx = DB.members.findIndex(x => x.id === m.id);
       if (idx >= 0) DB.members[idx] = m;
       else DB.members.push(m);
       persist();
+
+      // Uložení stavu služby a členů do Supabase, aby to viděli všichni
+      if (supabaseClient) {
+        try {
+          await supabaseClient.from('members').upsert([{
+            id: m.id,
+            name: m.name,
+            rank: m.rank,
+            number: m.number,
+            avatar: m.avatar,
+            on_duty: m.onDuty,
+            duty_start: m.dutyStart,
+            duties_history: m.dutiesHistory,
+            weekly_bonuses: m.weeklyBonuses
+          }]);
+        } catch (e) {}
+      }
     },
     deleteMember(id) {
       DB.members = DB.members.filter(x => x.id !== id);
@@ -601,7 +650,26 @@
     } catch (e) {}
   }
 
-  setInterval(() => {
+  setInterval(async () => {
+    // Pravidelná synchronizace stavu členů a služby ze Supabase pro všechny uživatele
+    if (supabaseClient) {
+      try {
+        const { data, error } = await supabaseClient.from('members').select('*');
+        if (!error && data && data.length > 0) {
+          data.forEach(dbm => {
+            const m = DB.members.find(x => x.id === dbm.id);
+            if (m) {
+              m.onDuty = dbm.on_duty;
+              m.dutyStart = dbm.duty_start;
+              m.dutiesHistory = dbm.duties_history || [];
+              m.weeklyBonuses = dbm.weekly_bonuses || {};
+            }
+          });
+          persist();
+        }
+      } catch(e) {}
+    }
+
     const now = new Date();
     const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
     const dayName = daysOfWeek[now.getDay()];
@@ -773,7 +841,7 @@
                 <td><b>${esc(v.name)}</b></td>
                 <td>${esc(v.type)}</td>
                 <td>${statusBadge}</td>
-                <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
+                <td class="muted">${esc(v.note \vert{}\vert{} '-')}</td>${isLead(u) ? `
                   <td>
                     <div style="display:flex; gap:8px;">
                       <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
@@ -1336,7 +1404,7 @@
         }
         toast('Služba ukončena a uložena na profil.');
       }
-      Data.saveMember(u);
+      await Data.saveMember(u);
       await syncDutyToDiscord();
       renderApp();
     }
@@ -1403,11 +1471,11 @@
     if (act === 'confirm-delete-duty-history') {
       const mId = el.dataset.memberId;
       const dIdx = parseInt(el.dataset.dutyIdx, 10);
-      openConfirmModal('Smazat záznam', 'Opravdu smazat tento záznam služby?', () => {
+      openConfirmModal('Smazat záznam', 'Opravdu smazat tento záznam služby?', async () => {
         const m = Data.member(mId);
         if (m && m.dutiesHistory) {
           m.dutiesHistory.splice(dIdx, 1);
-          Data.saveMember(m);
+          await Data.saveMember(m);
           toast('Záznam služby smazán.');
           renderApp();
         }
@@ -1416,11 +1484,11 @@
     if (act === 'confirm-delete-bonus') {
       const mId = el.dataset.memberId;
       const incId = el.dataset.incId;
-      openConfirmModal('Smazat prémii', 'Opravdu chcete tuto prémii smazat?', () => {
+      openConfirmModal('Smazat prémii', 'Opravdu chcete tuto prémii smazat?', async () => {
         const m = Data.member(mId);
         if (m && m.weeklyBonuses) {
           delete m.weeklyBonuses[incId];
-          Data.saveMember(m);
+          await Data.saveMember(m);
           toast('Prémie smazána.');
           renderApp();
         }
@@ -1507,7 +1575,7 @@
         dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
         weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
       };
-      Data.saveMember(m);
+      await Data.saveMember(m);
       closeModal();
       toast('Člen uložen.');
       renderApp();
@@ -1517,7 +1585,7 @@
       if (inc) {
         inc.status = 'approved';
         await Data.saveIncident(inc);
-        toast('Výjezd schválen.');
+        toast('Výjezd schválena.');
         renderApp();
       }
     }
