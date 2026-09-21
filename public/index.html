@@ -86,6 +86,13 @@
     .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 12px; }
     .panel-body { padding: 18px; }
 
+    /* Styly pro směrnice - náhled vs plný text */
+    .guideline-full { display: none; }
+    .panel.expanded .guideline-snippet { display: none; }
+    .panel.expanded .guideline-full { display: block; }
+    .panel:hover .guideline-snippet { display: none; }
+    .panel:hover .guideline-full { display: block; }
+
     .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
     .strip > div { padding: 16px 20px; border-right: 1px solid var(--line); }
     .strip > div:last-child { border-right: 0; }
@@ -404,7 +411,6 @@
       else {
         DB.incidents.unshift(inc);
         if (inc.status === 'approved') {
-          // Započítat bonusy pro velitele i spolúčastněné
           const involvedIds = [inc.commanderId, ...(inc.memberIds || [])];
           const uniqueInvolved = [...new Set(involvedIds)];
           uniqueInvolved.forEach(mId => {
@@ -480,7 +486,8 @@
     activeTab: localStorage.getItem('active_tab') || 'dashboard',
     theme: localStorage.getItem('theme') || 'dark',
     customColor: localStorage.getItem('custom_color') || '#e63b2e',
-    activeGuidelineCategory: localStorage.getItem('active_guideline_cat') || 'všechny'
+    activeGuidelineCategory: localStorage.getItem('active_guideline_cat') || 'všechny',
+    expandedGuidelines: {}
   };
 
   function applyThemeSettings() {
@@ -592,7 +599,6 @@
   function viewDashboard() {
     const u = state.user;
     const allIncidents = Data.incidents();
-    // Zobrazí výjezdy, kde je uživatel buď velitel (autor/zapisovatel), nebo spolúčastněný
     const myIncidents = allIncidents.filter(i => isLead(u) || i.commanderId === u.id || (i.memberIds && i.memberIds.includes(u.id)));
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
@@ -711,7 +717,6 @@
     </div>`;
   }
 
-  // Nová sekce: Evidence výjezdů na konkrétní lidi (Statistika / Přehled osob)
   function viewMemberIncidentsStats() {
     const members = Data.members();
     const incidents = Data.incidents();
@@ -781,25 +786,32 @@
           <div style="font-size:0.85rem; color:var(--muted);">Celkem položek: <b>${filtered.length}</b></div>
         </div>
 
-        ${filtered.length ? filtered.map(g => `
-          <div class="panel" style="overflow:hidden; transition:border-color 0.15s;">
+        ${filtered.length ? filtered.map(g => {
+          const isExpanded = state.expandedGuidelines && state.expandedGuidelines[g.id];
+          const snippet = g.content.length > 140 ? g.content.slice(0, 140) + '...' : g.content;
+          return `
+          <div class="panel ${isExpanded ? 'expanded' : ''}" style="overflow:hidden; transition:border-color 0.15s;">
             <div class="panel-head" style="background:var(--panel-2);">
               <div style="display:flex; align-items:center; gap:10px;">
                 <span class="tag" style="background:var(--red-dim); color:var(--red); border-color:var(--red);">${esc(g.category || 'Obecné')}</span>
                 <h2>${esc(g.title)}</h2>
               </div>
               <div style="display:flex; gap:8px; align-items:center;">
-                <span class="muted" style="font-size:0.78rem;">${fmtDate(g.date)}</span>${isLead(u) ? `
+                <span class="muted" style="font-size:0.78rem;">${fmtDate(g.date)}</span>
+                <button class="btn sm primary" data-act="toggle-guideline-expand" data-id="${g.id}">${isExpanded ? 'Skrýt popis' : 'Zobrazit celý popis'}</button>
+                ${isLead(u) ? `
                   <button class="btn sm" data-act="edit-guideline" data-id="${g.id}">Upravit</button>
                   <button class="btn sm danger" data-act="confirm-delete-guideline" data-id="${g.id}">Smazat</button>
                 ` : ''}
               </div>
             </div>
             <div class="panel-body" style="background:var(--panel);">
-              <p style="white-space:pre-wrap; line-height:1.6; color:var(--text);">${esc(g.content)}</p>
+              <div class="guideline-snippet" style="white-space:pre-wrap; line-height:1.6; color:var(--text);">${esc(snippet)}</div>
+              <div class="guideline-full" style="white-space:pre-wrap; line-height:1.6; color:var(--text);">${esc(g.content)}</div>
             </div>
           </div>
-        `).join('') : `
+        `;
+        }).join('') : `
           <div class="panel" style="padding:40px; text-align:center;">
             <p class="muted" style="font-size:1.05rem;">V této kategorii se prozatím nenacházejí žádné směrnice.</p>
           </div>
@@ -993,7 +1005,6 @@
   function openNewIncidentModal(editInc = null) {
     closeModal();
     const members = Data.members();
-    // Pokud editujeme, vynecháme přihlášeného uživatele z checkboxů, abychom ho neopakovali (velitel se nastavuje automaticky)
     const otherMembers = members.filter(m => m.id !== (editInc ? editInc.commanderId : state.user.id));
 
     html = `
@@ -1054,7 +1065,6 @@
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
-  // Modální okno pro rozkliknutí výjezdů konkrétní osoby v evidenci
   function openMemberIncidentsModal(memberId) {
     closeModal();
     const member = Data.member(memberId);
@@ -1227,6 +1237,11 @@
       await syncDutyToDiscord();
       renderApp();
     }
+    if (act === 'toggle-guideline-expand') {
+      const gId = el.dataset.id;
+      state.expandedGuidelines[gId] = !state.expandedGuidelines[gId];
+      renderView();
+    }
     if (act === 'new-incident') openNewIncidentModal();
     if (act === 'open-incident-detail') openIncidentDetailModal(el.dataset.id);
     if (act === 'open-member-incidents-modal') openMemberIncidentsModal(el.dataset.id);
@@ -1314,8 +1329,8 @@
         datetime: existingInc ? existingInc.datetime : new Date().toISOString(),
         type, location: loc,
         units: ['CAS 20'],
-        memberIds: selectedMembers, // Spolúčastnění členové
-        commanderId: existingInc ? existingInc.commanderId : state.user.id, // Zapisovatel je automaticky velitelem
+        memberIds: selectedMembers,
+        commanderId: existingInc ? existingInc.commanderId : state.user.id,
         description: desc,
         result: 'V řešení',
         status: userRankOk ? 'approved' : 'pending',
@@ -1396,3 +1411,4 @@
   </script>
 </body>
 </html>
+```[cite: 6]
