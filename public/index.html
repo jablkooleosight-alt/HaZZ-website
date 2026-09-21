@@ -3,711 +3,426 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>HZS – Výjezdový a Informační systém</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&amp;family=Barlow:wght@400;500;600&amp;display=swap" rel="stylesheet">
+  <title>HZS System - Výjezdový Portál</title>
+  <!-- Tailwind CSS & FontAwesome Icons -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
-    :root {
-      --bg: #12151b;
-      --panel: #191d25;
-      --panel-2: #1f242e;
-      --line: #2b313d;
-      --text: #e9ebef;
-      --muted: #8d95a4;
-      --red: #e63b2e;
-      --red-dim: #3a1c1d;
-      --amber: #f2a53a;
-      --amber-dim: #3b2d17;
-      --blue: #5aa0d6;
-      --green: #4cb782;
-      --grey: #7c8494;
-      --radius: 6px;
-      --f-head: "Barlow Condensed", "Arial Narrow", Arial, sans-serif;
-      --f-body: "Barlow", "Segoe UI", system-ui, sans-serif;
+    @keyframes rankUpPulse {
+      0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 12px rgba(239, 68, 68, 0); }
+      100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
     }
-
-    body.light-theme {
-      --bg: #f4f5f8;
-      --panel: #ffffff;
-      --panel-2: #e9ecef;
-      --line: #d1d5db;
-      --text: #1f2937;
-      --muted: #6b7280;
-      --red-dim: #fde8e8;
-      --amber-dim: #fef3c7;
+    .rank-up-effect {
+      animation: rankUpPulse 1.8s infinite ease-in-out;
+      border: 2px solid #ef4444 !important;
     }
-
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    html { color-scheme: dark; }
-    body { background: var(--bg); color: var(--text); font-family: var(--f-body); font-size: 15px; line-height: 1.5; min-height: 100vh; transition: background 0.2s, color 0.2s; }
-    button, input, select, textarea { font: inherit; color: inherit; }
-    button { cursor: pointer; }
-    :focus-visible { outline: 2px solid var(--amber); outline-offset: 2px; }
-    h1, h2, h3 { font-family: var(--f-head); font-weight: 600; letter-spacing: 0.01em; line-height: 1.1; }
-    h1 { font-size: 2.1rem; }
-    h2 { font-size: 1.35rem; }
-    h3 { font-size: 1.1rem; }
-    .muted { color: var(--muted); }
-
-    .app { display: grid; grid-template-columns: 250px 1fr; min-height: 100vh; }
-    .side { background: var(--panel); border-right: 1px solid var(--line); display: flex; flex-direction: column; padding: 20px 14px; position: sticky; top: 0; height: 100vh; }
-    .brand { display: flex; align-items: center; gap: 12px; padding: 0 8px 22px; }
-    .brand-mark { width: 38px; height: 38px; border-radius: 8px; background: var(--red); display: grid; place-items: center; flex: none; }
-    .brand-mark svg { width: 22px; height: 22px; fill: #fff; }
-    .brand b { font-family: var(--f-head); font-size: 1.25rem; font-weight: 700; display: block; line-height: 1; }
-    .brand span { font-size: 0.78rem; color: var(--muted); }
-    .nav { display: flex; flex-direction: column; gap: 2px; }
-    .nav a { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: var(--radius); color: var(--muted); text-decoration: none; font-weight: 500; border-left: 3px solid transparent; }
-    .nav a svg { width: 19px; height: 19px; stroke: currentColor; fill: none; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; flex: none; }
-    .nav a:hover { background: var(--panel-2); color: var(--text); }
-    .nav a.on { background: var(--panel-2); color: var(--text); border-left-color: var(--red); }
-    .nav .badge { margin-left: auto; background: var(--amber); color: #1a1200; font-size: 0.72rem; font-weight: 700; border-radius: 20px; padding: 0 7px; min-width: 20px; text-align: center; }
-    .side-foot { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px; display: flex; flex-direction: column; gap: 10px; }
-    .me { display: flex; align-items: center; gap: 10px; padding: 4px 6px; }
-    .me-name { font-weight: 600; line-height: 1.2; }
-    .me-rank { font-size: 0.8rem; color: var(--muted); }
-    .main { padding: 32px clamp(18px, 4vw, 44px) 60px; max-width: 1200px; width: 100%; }
-    .page-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
-    .page-head p { color: var(--muted); margin-top: 6px; }
-
-    .avatar { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; font-family: var(--f-head); font-weight: 700; font-size: 1rem; color: #fff; flex: none; background-size: cover; background-position: center; }
-
-    .btn { display: inline-flex; align-items: center; gap: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 14px; font-weight: 500; transition: background 0.15s, border-color 0.15s; text-decoration: none; }
-    .btn:hover { background: var(--line); }
-    .btn.primary { background: var(--red); border-color: var(--red); color: #fff; }
-    .btn.primary:hover { background: #f04a3d; }
-    .btn.discord { background: #5865F2; border-color: #5865F2; color: #fff; }
-    .btn.discord:hover { background: #4752C4; }
-    .btn.danger { color: #ff8b82; }
-    .btn.danger:hover { background: var(--red-dim); border-color: var(--red); }
-    .btn.ok { color: var(--green); }
-    .btn.sm { padding: 4px 10px; font-size: 0.85rem; }
-
-    .panel { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
-    .panel-head { display: flex; justify-content: space-between; align-items: center; padding: 14px 18px; border-bottom: 1px solid var(--line); gap: 12px; }
-    .panel-body { padding: 18px; }
-
-    .strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); margin-bottom: 20px; }
-    .strip > div { padding: 16px 20px; border-right: 1px solid var(--line); }
-    .strip > div:last-child { border-right: 0; }
-    .strip .n { font-family: var(--f-head); font-size: 2.2rem; font-weight: 700; line-height: 1; }
-    .strip .l { color: var(--muted); font-size: 0.85rem; margin-top: 4px; }
-
-    .tag { display: inline-block; padding: 1px 9px; border-radius: 20px; font-size: 0.78rem; font-weight: 600; border: 1px solid var(--line); color: var(--muted); }
-    .tag.pending { color: var(--amber); border-color: #5a4520; background: var(--amber-dim); }
-    .tag.approved { color: var(--green); border-color: #25523d; }
-    .tag.active { color: var(--green); border-color: #25523d; background: rgba(76, 183, 130, 0.1); }
-
-    .inc-list { list-style: none; }
-    .inc { display: grid; grid-template-columns: 5px 1fr auto; gap: 14px; padding: 13px 18px; border-bottom: 1px solid var(--line); cursor: pointer; align-items: center; background: none; width: 100%; text-align: left; border-left: 0; border-right: 0; border-top: 0; }
-    .inc:last-child { border-bottom: 0; }
-    .inc:hover { background: var(--panel-2); }
-    .inc .bar { align-self: stretch; border-radius: 3px; }
-    .inc .right { text-align: right; font-size: 0.85rem; color: var(--muted); }
-    .t-pozar { background: var(--red); }
-    .t-dn { background: var(--amber); }
-    .t-technika { background: var(--blue); }
-    .t-zachrana { background: var(--green); }
-    .t-plany { background: var(--grey); }
-
-    .field { display: flex; flex-direction: column; gap: 5px; }
-    .field label { font-size: 0.85rem; color: var(--muted); font-weight: 500; }
-    input[type=text], select, textarea { background: var(--bg); border: 1px solid var(--line); border-radius: var(--radius); padding: 8px 11px; width: 100%; }
-    input:focus, select:focus, textarea:focus { border-color: var(--amber); outline: none; }
-    textarea { min-height: 90px; resize: vertical; }
-
-    table { width: 100%; border-collapse: collapse; }
-    th { font-weight: 600; font-size: 0.85rem; color: var(--muted); text-align: left; padding: 10px 18px; border-bottom: 1px solid var(--line); }
-    td { padding: 11px 18px; border-bottom: 1px solid var(--line); vertical-align: middle; }
-    tr:last-child td { border-bottom: 0; }
-    .who { display: flex; align-items: center; gap: 11px; }
-    .table-wrap { overflow-x: auto; }
-    .empty { padding: 28px 18px; text-align: center; color: var(--muted); }
-
-    .overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.6); display: grid; place-items: center; padding: 16px; z-index: 50; overflow-y: auto; }
-    .modal { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; width: min(680px, 100%); max-height: calc(100vh - 32px); overflow-y: auto; animation: pop 0.15s ease-out; }
-    .modal-head { display: flex; justify-content: space-between; align-items: center; padding: 16px 22px; border-bottom: 1px solid var(--line); position: sticky; top: 0; background: var(--panel); z-index: 1; }
-    .modal-body { padding: 22px; }
-    .modal-foot { display: flex; justify-content: flex-end; gap: 10px; padding: 14px 22px; border-top: 1px solid var(--line); }
-    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-    .form-grid .full { grid-column: 1 / -1; }
-    .check-box { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px; max-height: 170px; overflow-y: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4px 12px; background: var(--bg); }
-    .check-box label { display: flex; align-items: center; gap: 8px; font-size: 0.92rem; color: var(--text); font-weight: 400; cursor: pointer; }
-    @keyframes pop { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
-
-    .toasts { position: fixed; right: 18px; bottom: 18px; display: flex; flex-direction: column; gap: 8px; z-index: 100; }
-    .toast { background: var(--panel-2); border: 1px solid var(--line); border-left: 4px solid var(--green); border-radius: var(--radius); padding: 10px 16px; box-shadow: 0 8px 24px rgba(0,0,0,0.3); animation: pop 0.2s ease-out; }
-    .toast.err { border-left-color: var(--red); }
-
-    .login { min-height: 100vh; display: grid; place-items: center; padding: 20px; background: var(--bg); }
-    .login-card { width: min(420px, 100%); background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; text-align: center; }
-    .login-top { padding: 30px 30px 22px; border-bottom: 1px solid var(--line); }
-    .login-top h1 { font-size: 2.2rem; }
-    .login-top p { color: var(--muted); margin-top: 8px; }
-    .login-body { padding: 28px 30px; display: flex; flex-direction: column; gap: 16px; }
   </style>
 </head>
-<body>
-  <div id="root"></div>
-  <div class="toasts" id="toasts"></div>
+<body class="bg-gray-950 text-gray-100 min-h-screen font-sans">
 
-  <script>
-  // <![CDATA[
-  const CONFIG = {
-    WEBHOOK_INCIDENTS_PENDING: "https://discord.com/api/webhooks/1551368968416268379/1Ivikd3AHmB4APopzy-ypMgMp56JzeTAvad0uYEgHH97Oo8MRlBs0RxJr6g9gRNvezpy",
-    DISCORD_INVITE_LINK: "https://discord.gg/zqyEqGh7FC"
-  };
+  <!-- Hasičská Navigace -->
+  <nav class="bg-red-950/90 border-b border-red-800/50 backdrop-blur sticky top-0 z-40 px-6 py-4 flex justify-between items-center shadow-xl">
+    <div class="flex items-center space-x-3">
+      <i class="fa-solid fa-fire-extinguisher text-red-500 text-2xl"></i>
+      <span class="text-xl font-bold tracking-wider text-red-100">HZS PORTÁL</span>
+    </div>
+    <div class="flex space-x-2 md:space-x-4">
+      <button onclick="switchTab('members')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-users mr-2"></i>Členové</button>
+      <button onclick="switchTab('oznameni')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-bullhorn mr-2"></i>Oznámení</button>
+      <button onclick="switchTab('smernice')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-book-archive mr-2"></i>Směrnice</button>
+      <button onclick="switchTab('vyjezdy')" class="px-3 py-2 rounded hover:bg-red-900/50 font-medium text-sm md:text-base"><i class="fa-solid fa-truck-medical mr-2"></i>Výjezdy</button>
+    </div>
+  </nav>
 
-  const RANKS = [
-    { key: 'rotmajster', name: 'Rotmajster', level: 1 },
-    { key: 'nadrotmajster', name: 'Nadrotmajster', level: 2 },
-    { key: 'podpraporcik', name: 'Podpraporčík', level: 3 },
-    { key: 'praporcik', name: 'Praporčík', level: 4 },
-    { key: 'nadpraporcik', name: 'Nadpraporčík', level: 5 },
-    { key: 'ppor', name: 'Podporučík', level: 6 },
-    { key: 'por', name: 'Poručík', level: 7 },
-    { key: 'npor', name: 'Nadporučík', level: 8 },
-    { key: 'kpt', name: 'Kapitán', level: 9 },
-    { key: 'mjr', name: 'Major', level: 10 },
-    { key: 'pplk', name: 'Podplukovník', level: 11 },
-    { key: 'plk', name: 'Plukovník', level: 12 },
-    { key: 'reditelstvi', name: 'Ředitelství', level: 13 }
-  ];
+  <main class="max-w-6xl mx-auto p-6">
 
-  const LEAD_LEVEL = 6;
-  const INNER_LEAD_LEVEL = 9;
-  const DIRECTOR_LEVEL = 10;
-
-  const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
-
-  const TYPES = {
-    pozar: { name: 'Požár', cls: 't-pozar' },
-    dn: { name: 'Dopravní nehoda', cls: 't-dn' },
-    technika: { name: 'Technická pomoc', cls: 't-technika' },
-    zachrana: { name: 'Záchrana osob', cls: 't-zachrana' },
-    plany: { name: 'Planý poplach', cls: 't-plany' }
-  };
-
-  const esc = str => String(str ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const $ = sel => document.querySelector(sel);
-  const fmtDate = iso => iso ? new Date(iso).toLocaleDateString('cs-CZ') : '-';
-  const fmtDT = iso => iso ? `${new Date(iso).toLocaleDateString('cs-CZ')} ${new Date(iso).toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit' })}` : '-';
-  const uid = () => Math.random().toString(36).slice(2, 10);
-  const initials = name => (name || 'U N').split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase();
-
-  const avatar = m => {
-    if (m && m.avatar) {
-      return `<span class="avatar" style="background-image:url('${m.avatar}')"></span>`;
-    }
-    return `<span class="avatar" style="background:#8e44ad">${esc(initials(m ? m.name : ''))}</span>`;
-  };
-
-  function formatTime(seconds) {
-    const hrs = Math.floor(seconds / 3600);
-    const mins = Math.floor((seconds % 3600) / 60);
-    const secs = seconds % 60;
-    return [hrs, mins, secs].map(v => String(v).padStart(2, '0')).join(':');
-  }
-
-  async function sendDiscordWebhook(url, payload) {
-    if (!url || url.includes("PRIDAJ_SVOJ") || url.trim() === "") return;
-    try {
-      await fetch(url, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      });
-    } catch (e) { console.error(e); }
-  }
-
-  const STORE_KEY = 'hzs_rp_v2_data';
-
-  function seed() {
-    return {
-      members: [],
-      incidents: [],
-      guidelines: [
-        { id: 'g1', title: 'SOP 01 - Postup u požáru', content: 'Vždy používejte dýchací přístroj a dodržujte zásady bezpečnosti.', category: 'Zásahy', date: new Date().toISOString() }
-      ],
-      divisions: [],
-      monthlyResetDate: new Date().toISOString()
-    };
-  }
-
-  let DB = (() => {
-    try {
-      const r = localStorage.getItem(STORE_KEY);
-      if (r) return JSON.parse(r);
-    } catch (err) { console.error(err); }
-    return seed();
-  })();
-
-  const persist = () => {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(DB)); } catch (e) {}
-  };
-
-  const Data = {
-    members: () => DB.members || [],
-    member: id => DB.members.find(m => m.id === id) || null,
-    incidents: () => DB.incidents || [],
-    guidelines: () => DB.guidelines || [],
-    divisions: () => DB.divisions || [],
-    saveIncident(inc) {
-      const idx = DB.incidents.findIndex(x => x.id === inc.id);
-      if (idx >= 0) DB.incidents[idx] = inc;
-      else DB.incidents.push(inc);
-      persist();
-    },
-    saveMember(m) {
-      const idx = DB.members.findIndex(x => x.id === m.id);
-      if (idx >= 0) DB.members[idx] = m;
-      else DB.members.push(m);
-      persist();
-    },
-    syncMembers(discordMembers) {
-      DB.members = discordMembers.map(dm => {
-        const existing = DB.members.find(m => m.id === dm.id);
-        return {
-          id: dm.id,
-          name: dm.name,
-          rank: dm.rank,
-          number: dm.number,
-          avatar: dm.avatar,
-          joined: dm.joined,
-          onDuty: existing ? existing.onDuty : false,
-          dutyStart: existing ? existing.dutyStart : null,
-          totalDutySeconds: existing ? existing.totalDutySeconds : 0
-        };
-      });
-      persist();
-    },
-    resetMonthlyStats() {
-      DB.monthlyResetDate = new Date().toISOString();
-      persist();
-    }
-  };
-
-  const state = {
-    user: JSON.parse(sessionStorage.getItem('logged_user') || 'null'),
-    activeTab: 'dashboard',
-    theme: localStorage.getItem('theme') || 'dark'
-  };
-
-  const isLead = u => u && rankOf(u.rank).level >= LEAD_LEVEL;
-  const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
-  const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
-
-  function toast(msg, isErr = false) {
-    const container = $('#toasts');
-    if (!container) return;
-    const t = document.createElement('div');
-    t.className = 'toast' + (isErr ? ' err' : '');
-    t.textContent = msg;
-    container.append(t);
-    setTimeout(() => t.remove(), 3200);
-  }
-
-  async function renderLogin() {
-    const root = $('#root');
-    if (!root) return;
-
-    let loginUrl = '#';
-    try {
-      const res = await fetch('/api/auth/url');
-      const data = await res.json();
-      loginUrl = data.url;
-    } catch(e) { console.error('Nelze načíst Auth URL', e); }
-
-    root.innerHTML = `
-    <div class="login"><div class="login-card">
-      <div class="login-top">
-        <h1>HZS System</h1>
-        <p>Pro přístup do výjezdového portálu se přihlaste svým Discord účtem.</p>
+    <!-- SEKTOR 1: ČLENOVÉ (HODNOSTNĚ SEŘAZENÍ) -->
+    <section id="tab-members" class="tab-content">
+      <h2 class="text-2xl font-bold mb-4 border-b border-gray-800 pb-2 flex items-center">
+        <i class="fa-solid fa-user-shield text-red-500 mr-3"></i>Seznam Členů
+      </h2>
+      <div id="members-list" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        <p class="text-gray-400">Načítání členů...</p>
       </div>
-      <div class="login-body">
-        <a href="${loginUrl}" class="btn discord" style="justify-content:center; padding:12px; font-size:1.05rem;">
-          Přihlásit se přes Discord
-        </a>
-        <div>
-          <a href="${CONFIG.DISCORD_INVITE_LINK}" target="_blank" rel="noopener noreferrer" style="color:var(--amber); text-decoration:none; font-size:0.85rem;">
-            Nemáš přístup? Připoj se na náš Discord server
-          </a>
-        </div>
-      </div>
-    </div></div>`;
-  }
+    </section>
 
-  async function syncDutyToDiscord() {
-    const activeMembers = Data.members()
-      .filter(m => m.onDuty)
-      .map(m => ({ 
-        name: m.name, 
-        rankName: rankOf(m.rank).name,
-        startedAt: m.dutyStart ? new Date(m.dutyStart).toISOString() : new Date().toISOString()
-      }));
-
-    try {
-      await fetch('/api/duty-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activeMembers })
-      });
-    } catch (e) {
-      console.error('Chyba aktualizace služby:', e);
-    }
-  }
-
-  // Interval pro živou časomíru služby
-  setInterval(() => {
-    const activeDutyTimer = $('#active-duty-timer');
-    if (activeDutyTimer && state.user) {
-      const dbUser = Data.member(state.user.id) || state.user;
-      if (dbUser.onDuty && dbUser.dutyStart) {
-        const elapsedSeconds = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
-        activeDutyTimer.textContent = formatTime(elapsedSeconds);
-      }
-    }
-  }, 1000);
-
-  function viewDashboard() {
-    const u = state.user;
-    const myIncidents = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
-    const approvedInc = myIncidents.filter(i => i.status === 'approved');
-
-    let bonus = 0;
-    approvedInc.forEach(i => {
-      if (i.commanderId === u.id) bonus += 1500;
-      else if (i.memberIds && i.memberIds.includes(u.id)) bonus += 1000;
-    });
-
-    const dbUser = Data.member(u.id) || u;
-    const totalMin = Math.floor((dbUser.totalDutySeconds || 0) / 60);
-    const hours = Math.floor(totalMin / 60) || 0;
-    const mins = (totalMin % 60) || 0;
-
-    const currentDutyElapsed = (dbUser.onDuty && dbUser.dutyStart) 
-      ? formatTime(Math.floor((Date.now() - dbUser.dutyStart) / 1000)) 
-      : '00:00:00';
-
-    return `
-    <div class="page-head">
-      <div><h1>Vítej, ${esc(u.name)}</h1><p>Hodnost: ${esc(rankOf(u.rank).name)}</p></div>
-      <div>
-        <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
-          ${dbUser.onDuty ? 'Ukončit službu (Aktivní)' : 'Nastoupit do služby'}
+    <!-- SEKTOR 2: OZNÁMENÍ (ŘEDITELSTVÍ / VEDENÍ) -->
+    <section id="tab-oznameni" class="tab-content hidden">
+      <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
+        <h2 class="text-2xl font-bold flex items-center">
+          <i class="fa-solid fa-bullhorn text-red-500 mr-3"></i>Oficiální Oznámení
+        </h2>
+        <button onclick="openModal('oznameni')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
+          <i class="fa-solid fa-plus mr-2"></i> Přidat Oznámení
         </button>
       </div>
-    </div>
 
-    <div class="strip">
-      <div><div class="n">${approvedInc.length}</div><div class="l">Moje výjezdy</div></div>
-      ${isDirector(u) ? `<div><div class="n">${bonus.toLocaleString()} €</div><div class="l">Moje Prémie za výjezdy</div></div>` : ''}
-      <div>
-        <div class="n" id="active-duty-timer">${dbUser.onDuty ? currentDutyElapsed : '00:00:00'}</div>
-        <div class="l">${dbUser.onDuty ? 'Čas v aktuální službě' : 'Není ve službě'}</div>
+      <div id="oznameni-list" class="space-y-4">
+        <p class="text-gray-400">Načítání oznámení...</p>
       </div>
-      <div><div class="n">${hours}h ${mins}m</div><div class="l">Odsloužený čas celkem</div></div>
-    </div>
+    </section>
 
-    ${isInnerLead(u) ? `
-    <div class="panel">
-      <div class="panel-head">
-        <h2>Statistika výjezdů za 30 dní (Užší Vedení)</h2>
-        <button class="btn sm danger" data-act="reset-stats">Resetovat měsíční statistiku</button>
+    <!-- SEKTOR 3: SMĚRNICE (DYNAMICKÉ KATEGORIE A SPRÁVA) -->
+    <section id="tab-smernice" class="tab-content hidden">
+      <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
+        <h2 class="text-2xl font-bold flex items-center">
+          <i class="fa-solid fa-file-contract text-red-500 mr-3"></i>Směrnice a Předpisy
+        </h2>
+        <button onclick="openModal('smernice')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
+          <i class="fa-solid fa-plus mr-2"></i> Přidat Směrnici
+        </button>
       </div>
-      <div class="panel-body">
-        <p class="muted">Od posledního resetu (${fmtDate(DB.monthlyResetDate || new Date())}) bylo zaznamenáno <b>${Data.incidents().length}</b> výjezdů.</p>
+
+      <div id="smernice-categories" class="space-y-4">
+        <p class="text-gray-400">Načítání směrnic...</p>
       </div>
-    </div>` : ''}
+    </section>
 
-    <div class="panel">
-      <div class="panel-head"><h2>Poslední dostupné výjezdy</h2><button class="btn primary sm" data-act="new-incident">Zapsat výjezd</button></div>
-      <ul class="inc-list">
-        ${myIncidents.slice(0, 5).map(i => `
-          <li class="inc" data-act="open-incident" data-id="${i.id}">
-            <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
-            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
-            <span class="right">${fmtDT(i.datetime)}</span>
-          </li>`).join('') || '<li class="empty">Žádné dostupné výjezdy.</li>'}
-      </ul>
-    </div>`;
-  }
+    <!-- SEKTOR 4: VÝJEZDY -->
+    <section id="tab-vyjezdy" class="tab-content hidden">
+      <div class="flex justify-between items-center mb-6 border-b border-gray-800 pb-2">
+        <h2 class="text-2xl font-bold flex items-center">
+          <i class="fa-solid fa-truck-fire text-red-500 mr-3"></i>Evidence Výjezdů
+        </h2>
+        <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white px-4 py-2 rounded-lg flex items-center shadow font-semibold text-sm">
+          <i class="fa-solid fa-plus mr-2"></i> Nový Výjezd
+        </button>
+      </div>
 
-  function viewIncidents() {
-    const u = state.user;
-    const list = Data.incidents().filter(i => isLead(u) || (i.memberIds && i.memberIds.includes(u.id)));
+      <div id="vyjezdy-list" class="space-y-4">
+        <p class="text-gray-400">Načítání výjezdů...</p>
+      </div>
+    </section>
 
-    return `
-    <div class="page-head">
-      <div><h1>Výjezdy</h1><p>${isLead(u) ? 'Všechny výjezdy jednotky' : 'Moje výjezdy'}</p></div>
-      <button class="btn primary" data-act="new-incident">Zapsat výjezd</button>
-    </div>
-    <div class="panel">
-      <ul class="inc-list">
-        ${list.map(i => `
-          <li class="inc" data-act="open-incident" data-id="${i.id}">
-            <span class="bar ${TYPES[i.type] ? TYPES[i.type].cls : ''}"></span>
-            <span><b>${esc(i.number)}</b> (${TYPES[i.type] ? TYPES[i.type].name : ''}) - ${esc(i.location)}</span>
-            <span class="right">${i.status === 'pending' ? '<span class="tag pending">Čeká</span>' : '<span class="tag approved">Schváleno</span>'}</span>
-          </li>`).join('') || '<li class="empty">Žádné výjezdy.</li>'}
-      </ul>
-    </div>`;
-  }
+  </main>
 
-  function viewGuidelines() {
-    return `
-    <div class="page-head"><div><h1>Směrnice &amp; Předpisy</h1></div></div>
-    <div class="stack">
-      ${Data.guidelines().map(g => `
-        <div class="panel"><div class="panel-head"><h2>${esc(g.title)}</h2><span class="tag">${esc(g.category)}</span></div>
-        <div class="panel-body"><p>${esc(g.content)}</p></div></div>
-      `).join('') || '<div class="empty">Žádné směrnice.</div>'}
-    </div>`;
-  }
+  <!-- UNIVERZÁLNÍ MODÁLNÍ OKNO -->
+  <div id="modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center hidden z-50 p-4">
+    <div class="bg-gray-900 border border-red-800/60 rounded-xl p-6 w-full max-w-lg shadow-2xl relative">
+      <button onclick="closeModal()" class="absolute top-4 right-4 text-gray-400 hover:text-white text-xl"><i class="fa-solid fa-xmark"></i></button>
+      
+      <h3 id="modal-title" class="text-xl font-bold mb-4 text-red-400 border-b border-gray-800 pb-2">Správa Záznamu</h3>
+      
+      <form id="modal-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
+        <input type="hidden" id="form-type" />
+        <input type="hidden" id="form-id" />
 
-  function viewMembers() {
-    const members = Data.members();
-    return `
-    <div class="page-head"><div><h1>Seznam Členů z Discordu</h1></div></div>
-    <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Stav služby</th><th>Odslouženo celkem</th></tr></thead>
-      <tbody>
-        ${members.length ? members.map(m => `
-          <tr>
-            <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
-            <td>${esc(rankOf(m.rank).name)}</td>
-            <td>#${esc(m.number || m.id.slice(-3))}</td>
-            <td>${m.onDuty ? '<span class="tag active">Ve službě</span>' : '<span class="muted">Mimo službu</span>'}</td>
-            <td>${Math.floor((m.totalDutySeconds || 0) / 3600)} hod.</td>
-          </tr>`).join('') : '<tr><td colspan="5" class="empty">Načítání členů z Discordu...</td></tr>'}
-      </tbody>
-    </table></div></div>`;
-  }
-
-  function viewAdmin() {
-    const pending = Data.incidents().filter(i => i.status === 'pending');
-    return `
-    <div class="page-head"><div><h1>Správa Vedení</h1></div></div>
-    <div class="panel">
-      <div class="panel-head"><h2>Výjezdy ke schválení (${pending.length})</h2></div>
-      <ul class="inc-list">
-        ${pending.map(i => `
-          <li class="inc">
-            <span><b>${esc(i.number)}</b> -${esc(i.location)}</span>
-            <span><button class="btn sm ok" data-act="approve-inc" data-id="${i.id}">Schválit</button></span>
-          </li>`).join('') || '<li class="empty">Žádné výjezdy nečekají na schválení.</li>'}
-      </ul>
-    </div>`;
-  }
-
-  function renderView() {
-    const v = state.activeTab;
-    const el = $('#view');
-    if (!el) return;
-
-    if (v === 'dashboard') el.innerHTML = viewDashboard();
-    else if (v === 'incidents') el.innerHTML = viewIncidents();
-    else if (v === 'guidelines') el.innerHTML = viewGuidelines();
-    else if (v === 'members') el.innerHTML = viewMembers();
-    else if (v === 'admin' && isLead(state.user)) el.innerHTML = viewAdmin();
-    else el.innerHTML = viewDashboard();
-  }
-
-  async function fetchDiscordMembers() {
-    try {
-      const res = await fetch('/api/members');
-      if (res.ok) {
-        const members = await res.json();
-        Data.syncMembers(members);
-        if (state.activeTab === 'members') renderView();
-      }
-    } catch (e) { console.error('Chyba synchronizace členů:', e); }
-  }
-
-  async function renderApp() {
-    const u = state.user;
-    if (!u) return renderLogin();
-
-    fetchDiscordMembers();
-
-    const root = $('#root');
-    if (!root) return;
-
-    root.innerHTML = `
-    <div class="app">
-      <aside class="side">
-        <div class="brand">
-          <div class="brand-mark">
-            <svg viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
-          </div>
-          <div><b>HZS System</b><span>Informační Portál</span></div>
+        <!-- Titulek / Název -->
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Název / Nadpis</label>
+          <input type="text" id="input-title" required class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
         </div>
-        <nav class="nav">
-          <a href="#/dashboard" class="${state.activeTab === 'dashboard' ? 'on' : ''}">Přehled</a>
-          <a href="#/incidents" class="${state.activeTab === 'incidents' ? 'on' : ''}">Výjezdy</a>
-          <a href="#/guidelines" class="${state.activeTab === 'guidelines' ? 'on' : ''}">Směrnice</a>
-          <a href="#/members" class="${state.activeTab === 'members' ? 'on' : ''}">Členové</a>
-          ${isLead(u) ? `<a href="#/admin" class="${state.activeTab === 'admin' ? 'on' : ''}">Vedení <span class="badge">${Data.incidents().filter(i => i.status === 'pending').length}</span></a>` : ''}
-        </nav>
-        <div class="side-foot">
-          <div class="me">
-            ${avatar(u)}
+
+        <!-- Kategorie (Pouze pro Směrnice) -->
+        <div id="field-category" class="hidden">
+          <label class="block text-sm text-gray-400 mb-1">Kategorie (např. Všeobecné, PJ, Výcvik...)</label>
+          <input type="text" id="input-category" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none" placeholder="Zadejte název kategorie">
+        </div>
+
+        <!-- Místo zásahu (Pouze pro Výjezdy) -->
+        <div id="field-location" class="hidden">
+          <label class="block text-sm text-gray-400 mb-1">Místo Zásahu</label>
+          <input type="text" id="input-location" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
+        </div>
+
+        <!-- Datum (Pouze pro Výjezdy) -->
+        <div id="field-date" class="hidden">
+          <label class="block text-sm text-gray-400 mb-1">Datum</label>
+          <input type="date" id="input-date" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none">
+        </div>
+
+        <!-- Autor / Priorita (Pouze pro Oznámení) -->
+        <div id="field-author" class="hidden">
+          <label class="block text-sm text-gray-400 mb-1">Vydal (Autor / Hodnost)</label>
+          <input type="text" id="input-author" class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none" placeholder="např. Ředitelství HZS / plk. Novák">
+        </div>
+
+        <!-- Obsah / Text -->
+        <div>
+          <label class="block text-sm text-gray-400 mb-1">Obsah / Popis</label>
+          <textarea id="input-content" rows="4" required class="w-full bg-gray-950 border border-gray-800 rounded p-2.5 text-white focus:border-red-500 outline-none"></textarea>
+        </div>
+
+        <div class="flex justify-end space-x-3 pt-4 border-t border-gray-800">
+          <button type="button" onclick="closeModal()" class="px-4 py-2 bg-gray-800 hover:bg-gray-700 rounded text-gray-300">Zrušit</button>
+          <button type="submit" class="px-5 py-2 bg-red-600 hover:bg-red-500 rounded text-white font-semibold shadow">Uložit Záznam</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <!-- APLIKAČNÍ LOGIKA SCRIPT -->
+  <script>
+    let previousMembers = {};
+
+    function switchTab(tabId) {
+      document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+      document.getElementById(`tab-${tabId}`).classList.remove('hidden');
+      if (tabId === 'members') loadMembers();
+      if (tabId === 'oznameni') loadOznameni();
+      if (tabId === 'smernice') loadSmernice();
+      if (tabId === 'vyjezdy') loadVyjezdy();
+    }
+
+    function toggleAccordion(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.toggle('hidden');
+    }
+
+    // --- 1. ČLENOVÉ + EFEKT RANK UP ---
+    async function loadMembers() {
+      try {
+        const res = await fetch('/api?action=members');
+        const data = await res.json();
+        const container = document.getElementById('members-list');
+        container.innerHTML = '';
+
+        data.forEach(m => {
+          const oldRank = previousMembers[m.id];
+          const currentRank = m.roles[0] || 'Nováček';
+          let isRankUp = oldRank && oldRank !== currentRank;
+          previousMembers[m.id] = currentRank;
+
+          const card = document.createElement('div');
+          card.className = `bg-gray-900 border border-gray-800 p-4 rounded-xl flex items-center space-x-4 transition ${isRankUp ? 'rank-up-effect' : ''}`;
+          card.innerHTML = `
+            <img src="${m.avatar}" class="w-14 h-14 rounded-full border-2 border-red-600 object-cover">
             <div>
-              <div class="me-name">${esc(u.name)}</div>
-              <div class="me-rank">${esc(rankOf(u.rank).name)}</div>
+              <h4 class="font-bold text-lg text-white">${m.displayName}</h4>
+              <p class="text-xs text-red-400 font-semibold uppercase tracking-wider">${m.roles.join(', ') || 'Bez hodnosti'}</p>
+              ${isRankUp ? '<span class="text-xs text-green-400 font-bold"><i class="fa-solid fa-arrow-up mr-1"></i> RANK UP!</span>' : ''}
             </div>
-          </div>
-          <button class="btn sm danger" data-act="logout" style="width:100%; justify-content:center;">Odhlásit se</button>
-        </div>
-      </aside>
-      <main class="main" id="view"></main>
-    </div>`;
-    renderView();
-  }
+          `;
+          container.appendChild(card);
+        });
+      } catch (err) { console.error(err); }
+    }
 
-  function closeModal() { $('#overlay')?.remove(); }
+    // --- 2. OZNÁMENÍ ---
+    async function loadOznameni() {
+      try {
+        const res = await fetch('/api?action=oznameni');
+        const data = await res.json();
+        const box = document.getElementById('oznameni-list');
+        box.innerHTML = '';
 
-  function openNewIncidentModal() {
-    closeModal();
-    const members = Data.members();
-    const html = `
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <div class="modal-head"><h2>Zapsat nový výjezd</h2><button class="btn sm" data-act="close">✕</button></div>
-        <div class="modal-body">
-          <form id="inc-form" class="form-grid">
-            <div class="field"><label>Místo zásahu</label><input type="text" id="i-loc" required /></div>
-            <div class="field"><label>Typ události</label>
-              <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}">${v.name}</option>`).join('')}</select>
+        if (!data || data.length === 0) {
+          box.innerHTML = '<p class="text-gray-500">Žádná oficiální oznámení.</p>';
+          return;
+        }
+
+        data.forEach(o => {
+          const card = document.createElement('div');
+          card.className = "bg-gray-900 border-l-4 border-red-600 p-5 rounded-r-lg shadow flex justify-between items-start";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center space-x-3 mb-1">
+                <h4 class="text-lg font-bold text-white">${o.title}</h4>
+                <span class="text-xs bg-red-950 text-red-300 px-2 py-0.5 rounded border border-red-800">${o.author || 'Vedení HZS'}</span>
+              </div>
+              <p class="text-sm text-gray-300 mt-2 whitespace-pre-line">${o.content}</p>
             </div>
-            <div class="field full"><label>Zasahující členové z Discordu</label>
-              <div class="check-box">
-                ${members.map(m => `<label><input type="checkbox" name="m-check" value="${m.id}" /> ${esc(m.name)}</label>`).join('')}
+            <div class="flex space-x-2 ml-4">
+              <button onclick='editItem("oznameni", ${JSON.stringify(o)})' class="p-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded"><i class="fa-solid fa-pen"></i></button>
+              <button onclick="deleteItem('oznameni', '${o.id}')" class="p-2 bg-gray-800 hover:bg-gray-700 text-red-400 rounded"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          `;
+          box.appendChild(card);
+        });
+      } catch (e) { console.error(e); }
+    }
+
+    // --- 3. SMĚRNICE (ROZDĚLENÍ DO KATEGORIÍ) ---
+    async function loadSmernice() {
+      try {
+        const res = await fetch('/api?action=smernice');
+        const data = await res.json();
+        const box = document.getElementById('smernice-categories');
+        box.innerHTML = '';
+
+        if (!data || data.length === 0) {
+          box.innerHTML = '<p class="text-gray-500">Žádné směrnice nebyly nalezeny.</p>';
+          return;
+        }
+
+        // Seskupení směrnic podle kategorií
+        const categories = {};
+        data.forEach(item => {
+          const cat = item.category || 'Obecné Směrnice';
+          if (!categories[cat]) categories[cat] = [];
+          categories[cat].push(item);
+        });
+
+        Object.keys(categories).forEach((catName, index) => {
+          const catId = `cat-box-${index}`;
+          const group = document.createElement('div');
+          group.className = "bg-gray-900 border border-gray-800 rounded-lg p-5 shadow-md";
+
+          let itemsHtml = categories[catName].map(s => `
+            <div class="p-3 bg-gray-950 border border-gray-800 rounded text-sm flex justify-between items-start mt-2">
+              <div>
+                <h5 class="font-bold text-gray-200">${s.title}</h5>
+                <p class="text-gray-400 mt-1 whitespace-pre-line">${s.content}</p>
+              </div>
+              <div class="flex space-x-2 ml-4">
+                <button onclick='editItem("smernice", ${JSON.stringify(s)})' class="p-1.5 text-blue-400 hover:text-blue-300"><i class="fa-solid fa-pen"></i></button>
+                <button onclick="deleteItem('smernice', '${s.id}')" class="p-1.5 text-red-400 hover:text-red-300"><i class="fa-solid fa-trash"></i></button>
               </div>
             </div>
-            <div class="field full"><label>Popis</label><textarea id="i-desc" required></textarea></div>
-          </form>
-        </div>
-        <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-inc">Uložit a Odeslat</button>
-        </div>
-      </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
-  }
+          `).join('');
 
-  function handleLoginSuccess() {
-    const hash = window.location.hash;
-    if (hash.startsWith('#/login-success')) {
-      const urlParams = new URLSearchParams(hash.split('?')[1]);
-      const userRaw = urlParams.get('user');
-      if (userRaw) {
-        try {
-          const user = JSON.parse(decodeURIComponent(userRaw));
-          state.user = user;
-          sessionStorage.setItem('logged_user', JSON.stringify(user));
-          toast(`Vítej, ${user.name}!`);
-        } catch(e) { console.error(e); }
-      }
-      window.location.hash = '#/dashboard';
+          group.innerHTML = `
+            <div class="flex justify-between items-center cursor-pointer" onclick="toggleAccordion('${catId}')">
+              <div class="flex items-center space-x-3">
+                <i class="fa-solid fa-folder text-red-500 text-xl"></i>
+                <h3 class="text-xl font-bold text-gray-200">${catName}</h3>
+              </div>
+              <div class="flex items-center space-x-3">
+                <button onclick="event.stopPropagation(); openModal('smernice', '${catName}')" class="bg-red-600 hover:bg-red-500 text-white text-xs px-3 py-1.5 rounded flex items-center shadow">
+                  <i class="fa-solid fa-plus mr-1"></i> Přidat do kategorie
+                </button>
+                <i class="fa-solid fa-chevron-down text-gray-400"></i>
+              </div>
+            </div>
+            <div id="${catId}" class="mt-4 border-t border-gray-800 pt-2 space-y-2">
+              ${itemsHtml}
+            </div>
+          `;
+          box.appendChild(group);
+        });
+      } catch (e) { console.error(e); }
     }
-  }
 
-  document.addEventListener('click', async e => {
-    const el = e.target.closest('[data-act]');
-    if (!el) return;
-    const act = el.dataset.act;
+    // --- 4. VÝJEZDY ---
+    async function loadVyjezdy() {
+      try {
+        const res = await fetch('/api?action=vyjezdy');
+        const data = await res.json();
+        const box = document.getElementById('vyjezdy-list');
+        box.innerHTML = '';
 
-    if (act === 'logout') {
-      state.user = null;
-      sessionStorage.removeItem('logged_user');
-      window.location.hash = '';
-      renderLogin();
-    }
-    if (act === 'toggle-duty') {
-      let u = Data.member(state.user.id) || state.user;
-      u.onDuty = !u.onDuty;
-      if (u.onDuty) {
-        u.dutyStart = Date.now();
-        toast('Nastoupil jsi do služby.');
-      } else {
-        if (u.dutyStart) {
-          const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
-          u.totalDutySeconds = (u.totalDutySeconds || 0) + diff;
-          u.dutyStart = null;
+        if (!data || data.length === 0) {
+          box.innerHTML = '<p class="text-gray-500">Žádné evidované výjezdy.</p>';
+          return;
         }
-        toast('Služba ukončena.');
-      }
-      Data.saveMember(u);
 
-      await syncDutyToDiscord();
-      renderApp();
+        data.forEach(v => {
+          const card = document.createElement('div');
+          card.className = "bg-gray-900 border border-gray-800 p-5 rounded-lg flex justify-between items-start shadow";
+          card.innerHTML = `
+            <div>
+              <div class="flex items-center space-x-3">
+                <span class="bg-red-950 text-red-300 text-xs px-2.5 py-1 rounded border border-red-800 font-mono">${v.date || 'Neznámo'}</span>
+                <h4 class="text-lg font-bold text-white">${v.title}</h4>
+              </div>
+              <p class="text-sm text-gray-400 mt-1"><i class="fa-solid fa-location-dot text-red-500 mr-1"></i> ${v.location}</p>
+              <p class="text-sm text-gray-300 mt-3 whitespace-pre-line">${v.description}</p>
+            </div>
+            <div class="flex space-x-2 ml-4">
+              <button onclick='editItem("vyjezd", ${JSON.stringify(v)})' class="p-2 bg-gray-800 hover:bg-gray-700 text-blue-400 rounded"><i class="fa-solid fa-pen"></i></button>
+              <button onclick="deleteItem('vyjezdy', '${v.id}')" class="p-2 bg-gray-800 hover:bg-gray-700 text-red-400 rounded"><i class="fa-solid fa-trash"></i></button>
+            </div>
+          `;
+          box.appendChild(card);
+        });
+      } catch (e) { console.error(e); }
     }
-    if (act === 'new-incident') openNewIncidentModal();
-    if (act === 'close') closeModal();
-    if (act === 'submit-inc') {
-      const loc = $('#i-loc')?.value;
-      const desc = $('#i-desc')?.value;
-      const type = $('#i-type')?.value;
-      const selectedMembers = Array.from(document.querySelectorAll('input[name="m-check"]:checked')).map(cb => cb.value);
 
-      if (!loc || !desc) return toast('Vyplň všechna pole.', true);
+    // --- POMOCNÉ FUNKCE MAZÁNÍ A ÚPRAV ---
+    async function deleteItem(type, id) {
+      if (!confirm('Opravdu chcete tuto položku odstranit?')) return;
+      const action = type === 'vyjezd' ? 'vyjezdy' : type;
+      await fetch(`/api?action=${action}&id=${id}`, { method: 'DELETE' });
+      if (action === 'oznameni') loadOznameni();
+      if (action === 'smernice') loadSmernice();
+      if (action === 'vyjezdy') loadVyjezdy();
+    }
 
-      const inc = {
-        id: uid(),
-        number: `VYJ-2026-000${Data.incidents().length + 1}`,
-        datetime: new Date().toISOString(),
-        type, location: loc,
-        units: ['CAS 20'],
-        memberIds: selectedMembers.length ? selectedMembers : [state.user.id],
-        commanderId: state.user.id,
-        description: desc,
-        result: 'V řešení',
-        status: isLead(state.user) ? 'approved' : 'pending',
-        authorId: state.user.id
+    function editItem(type, item) {
+      openModal(type, item.category || '', item);
+    }
+
+    // --- MODÁLNÍ OKNO HANDLER ---
+    function openModal(type, category = '', data = null) {
+      document.getElementById('modal').classList.remove('hidden');
+      document.getElementById('form-type').value = type;
+      document.getElementById('form-id').value = data ? data.id : '';
+
+      // Schovat všechna specifická pole
+      document.getElementById('field-category').classList.add('hidden');
+      document.getElementById('field-location').classList.add('hidden');
+      document.getElementById('field-date').classList.add('hidden');
+      document.getElementById('field-author').classList.add('hidden');
+
+      if (type === 'oznameni') {
+        document.getElementById('modal-title').innerText = data ? 'Úprava Oznámení' : 'Nové Oznámení';
+        document.getElementById('field-author').classList.remove('hidden');
+        document.getElementById('input-author').value = data ? data.author : 'Ředitelství HZS';
+      } else if (type === 'smernice') {
+        document.getElementById('modal-title').innerText = data ? 'Úprava Směrnice' : 'Nová Směrnice';
+        document.getElementById('field-category').classList.remove('hidden');
+        document.getElementById('input-category').value = category || (data ? data.category : '');
+      } else if (type === 'vyjezd') {
+        document.getElementById('modal-title').innerText = data ? 'Úprava Výjezdu' : 'Nový Výjezd';
+        document.getElementById('field-location').classList.remove('hidden');
+        document.getElementById('field-date').classList.remove('hidden');
+      }
+
+      document.getElementById('input-title').value = data ? data.title : '';
+      document.getElementById('input-location').value = data ? data.location || '' : '';
+      document.getElementById('input-date').value = data ? data.date || '' : '';
+      document.getElementById('input-content').value = data ? (data.content || data.description || '') : '';
+    }
+
+    function closeModal() {
+      document.getElementById('modal').classList.add('hidden');
+      document.getElementById('modal-form').reset();
+    }
+
+    async function handleFormSubmit(e) {
+      e.preventDefault();
+      const type = document.getElementById('form-type').value;
+      const id = document.getElementById('form-id').value;
+      const method = id ? 'PUT' : 'POST';
+
+      let bodyData = {
+        id: id || undefined,
+        title: document.getElementById('input-title').value,
       };
 
-      Data.saveIncident(inc);
-      closeModal();
-
-      if (inc.status === 'pending') {
-        sendDiscordWebhook(CONFIG.WEBHOOK_INCIDENTS_PENDING, {
-          embeds: [{
-            title: '🚨 Nový výjezd ke schválení!',
-            description: `**Číslo:** ${inc.number}\n**Místo:** ${inc.location}\n**Zapsal:** ${state.user.name}`,
-            color: 15844367
-          }]
+      if (type === 'oznameni') {
+        bodyData.content = document.getElementById('input-content').value;
+        bodyData.author = document.getElementById('input-author').value;
+        await fetch('/api?action=oznameni', {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData)
         });
-        toast('Výjezd uložen a odebrán ke schválení.');
-      } else {
-        toast('Výjezd uložen.');
+        loadOznameni();
+      } else if (type === 'smernice') {
+        bodyData.category = document.getElementById('input-category').value || 'Obecné Směrnice';
+        bodyData.content = document.getElementById('input-content').value;
+        await fetch('/api?action=smernice', {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData)
+        });
+        loadSmernice();
+      } else if (type === 'vyjezd') {
+        bodyData.location = document.getElementById('input-location').value;
+        bodyData.date = document.getElementById('input-date').value;
+        bodyData.description = document.getElementById('input-content').value;
+        await fetch('/api?action=vyjezdy', {
+          method, headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(bodyData)
+        });
+        loadVyjezdy();
       }
 
-      renderApp();
+      closeModal();
     }
-    if (act === 'approve-inc') {
-      const inc = Data.incidents().find(i => i.id === el.dataset.id);
-      if (inc) {
-        inc.status = 'approved';
-        Data.saveIncident(inc);
-        toast('Výjezd schválen.');
-        renderApp();
-      }
-    }
-  });
 
-  window.addEventListener('hashchange', () => {
-    handleLoginSuccess();
-    const hash = window.location.hash.replace('#/', '');
-    if (hash && !hash.startsWith('login-success')) state.activeTab = hash;
-    renderApp();
-  });
-
-  handleLoginSuccess();
-  renderApp();
-  // ]]>
+    // Inicializace aplikace
+    switchTab('members');
   </script>
 </body>
 </html>
