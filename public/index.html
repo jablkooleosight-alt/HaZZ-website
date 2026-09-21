@@ -982,15 +982,20 @@
     else el.innerHTML = viewDashboard();
   }
 
-  async function fetchDiscordMembers() {
-    try {
-      const res = await fetch('/api/members');
-      if (res.ok) {
-        const members = await res.json();
-        Data.syncMembers(members);
-      }
-    } catch (e) {}
-  }
+  const savedUser = JSON.parse(localStorage.getItem('user') || '{}');
+
+const response = await fetch('/api/members', {
+    headers: {
+        'x-user-id': savedUser.id
+    }
+});
+
+if (!response.ok) {
+    alert('Nemáš oprávnění k zobrazení těchto dat!');
+    return;
+}
+
+const members = await response.json();
 
   async function renderApp() {
     const u = state.user;
