@@ -14,9 +14,22 @@ const REDIRECT_URI = process.env.REDIRECT_URI;
 const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
 
 const ROLE_MAP = {
-  "123456789012345678": "reditelstvi",
-  "234567890123456789": "kpt",
-  "345678901234567890": "rotmajster"
+  // Nahraďte čísla v uvozovkách reálnými ID rolí z vašeho Discord serveru
+const ROLE_MAP = {
+  "1547544440170741810": "reditelstvi",
+  "1404448934050529290": "plk",
+  "1404448934021300353": "pplk",    
+  "1404448934021300352": "mjr",
+  "1404448934021300351": "kpt",
+  "1404448934021300350": "npor",
+  "1404448934021300349": "por",
+  "1404448934021300348": "ppor",
+  "1404448934021300347": "nadpraporcik",
+  "1404448934021300346": "praporcik",
+  "1404448934021300345": "podpraporcik",
+  "1404448934021300344": "nadrotmajster",
+  "1404448934000201787": "rotmajster"
+};
 };
 
 let dutyMessageId = null;
