@@ -1,0 +1,150 @@
+const express = require('express');
+const axios = require('axios');
+const cors = require('cors');
+
+const app = express();
+app.use(cors());
+app.use(express.json());
+
+const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
+const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = process.env.DISCORD_GUILD_ID;
+const REDIRECT_URI = process.env.REDIRECT_URI;
+const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
+
+const ROLE_MAP = {
+  "123456789012345678": "reditelstvi",
+  "234567890123456789": "kpt",
+  "345678901234567890": "rotmajster"
+};
+
+let dutyMessageId = null;
+
+app.get('/api/auth/url', (req, res) => {
+  const url = `https://discord.com/oauth2/authorize?client_id=${CLIENT_ID}&redirect_uri=${encodeURIComponent(REDIRECT_URI)}&response_type=code&scope=identify%20guilds.members.read`;
+  res.json({ url });
+});
+
+app.get('/api/auth/callback', async (req, res) => {
+  const code = req.query.code;
+  if (!code) return res.status(400).send('Chybí kód.');
+
+  try {
+    const tokenParams = new URLSearchParams({
+      client_id: CLIENT_ID,
+      client_secret: CLIENT_SECRET,
+      grant_type: 'authorization_code',
+      code: code,
+      redirect_uri: REDIRECT_URI
+    });
+
+    const tokenRes = await axios.post('https://discord.com/api/v10/oauth2/token', tokenParams, {
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' }
+    });
+
+    const accessToken = tokenRes.data.access_token;
+
+    const memberRes = await axios.get(`https://discord.com/api/v10/users/@me/guilds/${GUILD_ID}/member`, {
+      headers: { Authorization: `Bearer ${accessToken}` }
+    });
+
+    const memberData = memberRes.data;
+    
+    let userRank = 'rotmajster';
+    if (memberData.roles) {
+      for (const roleId of memberData.roles) {
+        if (ROLE_MAP[roleId]) {
+          userRank = ROLE_MAP[roleId];
+          break;
+        }
+      }
+    }
+
+    const userData = {
+      id: memberData.user.id,
+      name: memberData.nick || memberData.user.global_name || memberData.user.username,
+      avatar: memberData.user.avatar 
+        ? `https://cdn.discordapp.com/avatars/${memberData.user.id}/${memberData.user.avatar}.png`
+        : null,
+      rank: userRank
+    };
+
+    const encodedUser = encodeURIComponent(JSON.stringify(userData));
+    res.redirect(`/#/login-success?user=${encodedUser}`);
+
+  } catch (err) {
+    console.error('Chyba při autentizaci:', err.response?.data || err.message);
+    res.redirect('/?error=auth_failed');
+  }
+});
+
+app.get('/api/members', async (req, res) => {
+  try {
+    const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
+      headers: { Authorization: `Bot ${BOT_TOKEN}` }
+    });
+
+    const members = response.data.map(m => {
+      let rank = 'rotmajster';
+      for (const roleId of m.roles) {
+        if (ROLE_MAP[roleId]) {
+          rank = ROLE_MAP[roleId];
+          break;
+        }
+      }
+      return {
+        id: m.user.id,
+        name: m.nick || m.user.global_name || m.user.username,
+        rank: rank,
+        number: m.user.id.slice(-3),
+        joined: m.joined_at,
+        avatar: m.user.avatar ? `https://cdn.discordapp.com/avatars/${m.user.id}/${m.user.avatar}.png` : null
+      };
+    });
+
+    res.json(members);
+  } catch (err) {
+    console.error('Chyba při načítání členů:', err.response?.data || err.message);
+    res.status(500).json({ error: 'Nelze načíst členy z Discordu.' });
+  }
+});
+
+app.post('/api/duty-sync', async (req, res) => {
+  const { activeMembers } = req.body;
+  if (!DUTY_WEBHOOK_URL) return res.status(400).json({ error: 'Není nastaven Webhook' });
+
+  let listText = activeMembers.length > 0 
+    ? activeMembers.map(m => `• **${m.name}** (${m.rankName})`).join('\n')
+    : '_Momentálně není nikdo ve službě._';
+
+  const embedPayload = {
+    embeds: [{
+      title: '📋 Aktuální seznam ve službě (HZS)',
+      description: listText,
+      color: activeMembers.length > 0 ? 3066993 : 15158332,
+      footer: { text: `Poslední aktualizace: ${new Date().toLocaleTimeString('cs-CZ')}` }
+    }]
+  };
+
+  try {
+    if (dutyMessageId) {
+      await axios.patch(`${DUTY_WEBHOOK_URL}/messages/${dutyMessageId}`, embedPayload);
+    } else {
+      const resp = await axios.post(`${DUTY_WEBHOOK_URL}?wait=true`, embedPayload);
+      dutyMessageId = resp.data.id;
+    }
+    res.json({ success: true });
+  } catch (err) {
+    try {
+      const resp = await axios.post(`${DUTY_WEBHOOK_URL}?wait=true`, embedPayload);
+      dutyMessageId = resp.data.id;
+      res.json({ success: true });
+    } catch (e) {
+      console.error('Chyba aktualizace služby na Discordu:', e.message);
+      res.status(500).json({ error: 'Chyba webhooku' });
+    }
+  }
+});
+
+module.exports = app;
