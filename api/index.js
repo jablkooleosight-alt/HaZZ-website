@@ -615,6 +615,52 @@ app.delete('/api/guidelines/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requ
     }
 });
 
+// ==================== VOZIDLA / GARÁŽ (SUPABASE) ====================
+
+app.get('/api/vehicles', requireAuth, requireSupabase, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('vehicles').select('*');
+        if (error) throw error;
+        res.json(data);
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
+app.post('/api/vehicles', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupabase, async (req, res) => {
+    try {
+        const { data, error } = await supabase.from('vehicles').insert([req.body]).select();
+        if (error) throw error;
+        res.status(201).json(data[0]);
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
+app.patch('/api/vehicles/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupabase, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const body = { ...req.body };
+        delete body.id;
+        const { data, error } = await supabase.from('vehicles').update(body).eq('id', id).select();
+        if (error) throw error;
+        res.json(data[0]);
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
+app.delete('/api/vehicles/:id', requireAuth, requireMinLevel(LEAD_LEVEL), requireSupabase, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { error } = await supabase.from('vehicles').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        sendError(res, err);
+    }
+});
+
 // ==================== DISCORD DUTY SYNC ====================
 
 app.post('/api/duty-sync', requireAuth, async (req, res) => {

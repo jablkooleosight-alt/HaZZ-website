@@ -441,18 +441,52 @@
       persist();
       return ok;
     },
-    saveVehicle(v) {
-      if (!DB.vehicles) DB.vehicles = [];
-      const idx = DB.vehicles.findIndex(x => x.id === v.id);
-      if (idx >= 0) DB.vehicles[idx] = v;
-      else DB.vehicles.push(v);
-      persist();
+    async fetchVehiclesFromApi() {
+      try {
+        const res = await fetch('/api/vehicles');
+        if (res.ok) {
+          const apiVehicles = await res.json();
+          if (Array.isArray(apiVehicles)) {
+            DB.vehicles = apiVehicles;
+            persist();
+          }
+        }
+      } catch (e) {}
     },
-    deleteVehicle(id) {
-      if (DB.vehicles) {
-        DB.vehicles = DB.vehicles.filter(x => x.id !== id);
+    async saveVehicle(v) {
+      const isEdit = (DB.vehicles || []).some(x => x.id === v.id);
+      let ok = false;
+      try {
+        const method = isEdit ? 'PATCH' : 'POST';
+        const url = isEdit ? `/api/vehicles/${v.id}` : '/api/vehicles';
+        const res = await fetch(url, {
+          method: method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(v)
+        });
+        if (res.ok) {
+          await Data.fetchVehiclesFromApi();
+          ok = true;
+        }
+      } catch (e) {}
+      if (!ok) {
+        if (!DB.vehicles) DB.vehicles = [];
+        const idx = DB.vehicles.findIndex(x => x.id === v.id);
+        if (idx >= 0) DB.vehicles[idx] = v;
+        else DB.vehicles.push(v);
         persist();
       }
+      return ok;
+    },
+    async deleteVehicle(id) {
+      let ok = false;
+      try {
+        const res = await fetch(`/api/vehicles/${id}`, { method: 'DELETE' });
+        ok = res.ok;
+      } catch (e) {}
+      if (ok && DB.vehicles) DB.vehicles = DB.vehicles.filter(x => x.id !== id);
+      persist();
+      return ok;
     },
     async fetchGuidelinesFromApi() {
       try {
@@ -1068,6 +1102,7 @@
 
     await Data.fetchIncidentsFromApi();
     await Data.fetchGuidelinesFromApi();
+    await Data.fetchVehiclesFromApi();
     await fetchDiscordMembers();
     applyThemeSettings();
 
@@ -1426,9 +1461,9 @@
       if (v) openNewVehicleModal(v);
     }
     if (act === 'confirm-delete-vehicle') {
-      openConfirmModal('Smazat vozidlo', 'Opravdu chcete toto vozidlo odstranit z evidence?', () => {
-        Data.deleteVehicle(el.dataset.id);
-        toast('Vozidlo smazáno.');
+      openConfirmModal('Smazat vozidlo', 'Opravdu chcete toto vozidlo odstranit z evidence?', async () => {
+        const ok = await Data.deleteVehicle(el.dataset.id);
+        toast(ok ? 'Vozidlo smazáno.' : 'Vozidlo se nepodařilo smazat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1511,9 +1546,9 @@
         id: editId || uid(),
         name, type, status, note
       };
-      Data.saveVehicle(v);
+      const vOk = await Data.saveVehicle(v);
       closeModal();
-      toast('Vozidlo úspěšně uloženo.');
+      toast(vOk ? 'Vozidlo úspěšně uloženo.' : 'Vozidlo se nepodařilo uložit na server (zkus to znovu).', !vOk);
       renderApp();
     }
     if (act === 'submit-inc') {
