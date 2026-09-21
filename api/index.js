@@ -10,15 +10,19 @@ app.use(express.json());
 
 // Inicializace Supabase klienta pomocí proměnných prostředí
 const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_KEY;
+const supabaseKey = process.env.SUPABASE_ANON_KEY;
 const supabase = createClient(supabaseUrl, supabaseKey);
 
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 const CLIENT_SECRET = process.env.DISCORD_CLIENT_SECRET;
 const BOT_TOKEN = process.env.DISCORD_BOT_TOKEN;
-const GUILD_ID = process.env.DISCORD_GUILD_ID;
+const GUILD_ID = process.env.DISCORD_DISCORD_GUILD_ID || process.env.DISCORD_GUILD_ID;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
+
+// Doplnění pro Supabase
+const SUPABASE_URL = process.env.SUPABASE_URL;
+const SUPABASE_ANON_KEY = process.env.SUPABASE_ANON_KEY;
 
 const ROLE_MAP = {
   "1547544440170741810": "reditelstvi",
