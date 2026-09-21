@@ -530,8 +530,6 @@
             number: m.number,
             avatar: m.avatar,
             on_duty: m.onDuty,
-            duty_start: m.dutyStart,
-            duties_history: m.dutiesHistory,
             weekly_bonuses: m.weeklyBonuses
           }]);
         } catch (e) {}
@@ -553,8 +551,6 @@
           avatar: dm.avatar,
           joined: dm.joined,
           onDuty: existing ? existing.onDuty : false,
-          dutyStart: existing ? existing.dutyStart : null,
-          totalDutySeconds: existing ? existing.totalDutySeconds : 0,
           dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
           weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
         };
@@ -636,20 +632,6 @@
     </div>`;
   }
 
-  async function syncDutyToDiscord() {
-    const activeMembers = Data.members()
-      .filter(m => m.onDuty)
-      .map(m => ({ name: m.name, rankName: rankOf(m.rank).name }));
-
-    try {
-      await fetch('/api/duty-sync', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ activeMembers, editMessage: true })
-      });
-    } catch (e) {}
-  }
-
   setInterval(async () => {
     // Pravidelná synchronizace stavu členů a služby ze Supabase pro všechny uživatele
     if (supabaseClient) {
@@ -660,8 +642,6 @@
             const m = DB.members.find(x => x.id === dbm.id);
             if (m) {
               m.onDuty = dbm.on_duty;
-              m.dutyStart = dbm.duty_start;
-              m.dutiesHistory = dbm.duties_history || [];
               m.weeklyBonuses = dbm.weekly_bonuses || {};
             }
           });
@@ -669,34 +649,7 @@
         }
       } catch(e) {}
     }
-
-    const now = new Date();
-    const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-    const dayName = daysOfWeek[now.getDay()];
-    const dateFormatted = `${now.getDate()}. ${now.getMonth()+1}. ${now.getFullYear()}`;
-    const timeFormatted = now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
-    
-    const realClockEl = $('#real-time-clock');
-    if (realClockEl) {
-      realClockEl.textContent = `${dayName} ${dateFormatted} – ${timeFormatted}`;
-    }
-
-    const u = state.user;
-    if (!u) return;
-    const dbUser = Data.member(u.id);
-    const timerEl = $('#live-duty-timer');
-    if (dbUser && dbUser.onDuty && dbUser.dutyStart) {
-      const diffSec = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
-      const h = Math.floor(diffSec / 3600);
-      const m = Math.floor((diffSec % 3600) / 60);
-      const s = diffSec % 60;
-      if (timerEl) {
-        timerEl.textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
-      }
-    } else {
-      if (timerEl) timerEl.textContent = `0:00:00`;
-    }
-  }, 1000);
+  }, 3000);
 
   function viewDashboard() {
     const u = state.user;
@@ -705,18 +658,9 @@
     const approvedInc = myIncidents.filter(i => i.status === 'approved');
 
     const dbUser = Data.member(u.id) || u;
-    const activeSec = dbUser.onDuty && dbUser.dutyStart ? Math.floor((Date.now() - dbUser.dutyStart)/1000) : 0;
-    const h = Math.floor(activeSec / 3600);
-    const m = Math.floor((activeSec % 3600) / 60);
-    const s = activeSec % 60;
-
-    const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
-    const now = new Date();
-    const dayName = daysOfWeek[now.getDay()];
-    const initialRealTime = `${dayName} ${now.getDate()}. ${now.getMonth()+1}. ${now.getFullYear()} – ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
     const activeDutyMembers = Data.members().filter(m => m.onDuty);
 
-    const nowTime = now.getTime();
+    const nowTime = Date.now();
     const inc7Days = allIncidents.filter(i => !isNaN(new Date(i.datetime).getTime()) && (nowTime - new Date(i.datetime).getTime()) <= (7 * 24 * 60 * 60 * 1000));
     const inc30Days = allIncidents.filter(i => !isNaN(new Date(i.datetime).getTime()) && (nowTime - new Date(i.datetime).getTime()) <= (30 * 24 * 60 * 60 * 1000));
 
@@ -727,14 +671,6 @@
         <p>${esc(rankOf(dbUser.rank || u.rank).name)} · číslo ${esc(dbUser.number || '000')}</p>
       </div>
       <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
-        <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; font-weight:600;">Reálný čas</div>
-          <div id="real-time-clock" style="font-family:var(--f-head); font-size:1.15rem; font-weight:600;">${initialRealTime}</div>
-        </div>
-        <div style="text-align:right;">
-          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; font-weight:600;">Čas ve službě</div>
-          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; color:var(--amber);">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
-        </div>
         <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
           ${dbUser.onDuty ? 'Ukončit službu' : 'Nastoupit do služby'}
         </button>
@@ -842,7 +778,7 @@
             <td><b>${esc(v.name)}</b></td>
             <td>${esc(v.type)}</td>
             <td>${statusBadge}</td>
-            <td class="muted">${esc(v.note || '-')}</td>${isLead(u) ? `
+            <td class="muted">${esc(v.note) || '-'}</td>${isLead(u) ? `
               <td>
                 <div style="display:flex; gap:8px;">
                   <button class="btn sm" data-act="edit-vehicle" data-id="${v.id}">Upravit</button>
@@ -937,17 +873,13 @@
       ${canManageMembers ? '<button class="btn primary" data-act="manual-add-member">+ Přidat člena manuálně</button>' : ''}
     </div>
     <div class="panel"><div class="table-wrap"><table>
-      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th><th>Odsloužené služby</th>${canManageMembers ? '<th>Akce</th>' : ''}</tr></thead>
+      <thead><tr><th>Člen</th><th>Hodnost</th><th>Služební číslo</th>${canManageMembers ? '<th>Akce</th>' : ''}</tr></thead>
       <tbody>
         ${Data.members().map(m => `
           <tr>
             <td><div class="who">${avatar(m)}<b>${esc(m.name)}</b></div></td>
             <td>${esc(rankOf(m.rank).name)}</td>
-            <td>#${esc(m.number)}</td>
-            <td>
-              ${(m.dutiesHistory && m.dutiesHistory.length) ? m.dutiesHistory.map((d, idx) => `<div style="font-size:0.82rem; color:var(--muted); display:flex; align-items:center; gap:8px; margin-top:2px;">• ${d} ${canManageMembers ? `<button class="btn sm danger" style="padding:1px 6px; font-size:0.7rem;" data-act="confirm-delete-duty-history" data-member-id="${m.id}" data-duty-idx="${idx}">✕</button>` : ''}</div>`).join('') : '<span class="muted">Žádné záznamy</span>'}
-            </td>
-            ${canManageMembers ? `
+            <td>#${esc(m.number)}</td>${canManageMembers ? `
               <td>
                 <div style="display:flex; gap:8px;">
                   <button class="btn sm" data-act="edit-member" data-id="${m.id}">Upravit</button>
@@ -1392,22 +1324,11 @@
       let u = Data.member(state.user.id) || state.user;
       u.onDuty = !u.onDuty;
       if (u.onDuty) {
-        u.dutyStart = Date.now();
         toast('Nastoupil jsi do služby.');
       } else {
-        if (u.dutyStart) {
-          const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
-          const durMin = Math.floor(diff / 60);
-          const durSec = diff % 60;
-          const dutyRecordStr = `${durMin}m ${durSec}s (${new Date().toLocaleDateString('cs-CZ')})`;
-          if (!u.dutiesHistory) u.dutiesHistory = [];
-          u.dutiesHistory.unshift(dutyRecordStr);
-          u.dutyStart = null;
-        }
-        toast('Služba ukončena a uložena na profil.');
+        toast('Služba byla ukončena.');
       }
       await Data.saveMember(u);
-      await syncDutyToDiscord();
       renderApp();
     }
     if (act === 'toggle-guideline-expand') {
@@ -1468,19 +1389,6 @@
         Data.deleteMember(el.dataset.id);
         toast('Člen odebrán.');
         renderApp();
-      });
-    }
-    if (act === 'confirm-delete-duty-history') {
-      const mId = el.dataset.memberId;
-      const dIdx = parseInt(el.dataset.dutyIdx, 10);
-      openConfirmModal('Smazat záznam', 'Opravdu smazat tento záznam služby?', async () => {
-        const m = Data.member(mId);
-        if (m && m.dutiesHistory) {
-          m.dutiesHistory.splice(dIdx, 1);
-          await Data.saveMember(m);
-          toast('Záznam služby smazán.');
-          renderApp();
-        }
       });
     }
     if (act === 'confirm-delete-bonus') {
@@ -1573,8 +1481,6 @@
         id: editId || uid(),
         name, number, rank,
         onDuty: existing ? existing.onDuty : false,
-        totalDutySeconds: existing ? existing.totalDutySeconds : 0,
-        dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
         weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
       };
       await Data.saveMember(m);
@@ -1587,7 +1493,7 @@
       if (inc) {
         inc.status = 'approved';
         await Data.saveIncident(inc);
-        toast('Výjezd schválena.');
+        toast('Výjezd schválen.');
         renderApp();
       }
     }
