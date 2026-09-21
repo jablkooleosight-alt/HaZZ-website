@@ -502,7 +502,6 @@
     const m = Math.floor((activeSec % 3600) / 60);
     const s = activeSec % 60;
 
-    const announcements = Data.announcements();
     const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
     const now = new Date();
     const dayName = daysOfWeek[now.getDay()];
@@ -556,22 +555,6 @@
         </div>
       </div>
       <div>
-        <div class="panel">
-          <div class="panel-head">
-            <h2>Oznámení</h2>
-            ${isLead(u) ? '<button class="btn primary sm" data-act="new-announcement">+ Přidat</button>' : ''}
-          </div>
-          <div class="panel-body">
-            ${announcements.length ? announcements.map(a => `
-              <div style="margin-bottom:12px; border-bottom:1px solid var(--line); padding-bottom:8px;">
-                <b style="font-size:0.95rem;">${esc(a.title)}</b>
-                <p style="font-size:0.9rem; margin:4px 0;">${esc(a.content)}</p>
-                <div class="muted" style="font-size:0.75rem;">Přidal: ${esc(a.authorName)} (${fmtDT(a.createdAt)})</div>
-              </div>
-            `).join('') : '<p class="muted" style="text-align:center;">Žádná oznámení.</p>'}
-          </div>
-        </div>
-
         <div class="panel">
           <div class="panel-head"><h2>Ve službě</h2></div>
           <div class="panel-body" style="display:flex; flex-direction:column; gap:10px;">
@@ -948,27 +931,6 @@
     document.body.insertAdjacentHTML('beforeend', html);
   }
 
-  function openAnnouncementModal() {
-    closeModal();
-    const html = `
-    <div class="overlay" id="overlay">
-      <div class="modal">
-        <div class="modal-head"><h2>Přidat oznámení</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
-        <div class="modal-body">
-          <form class="form-grid" onsubmit="event.preventDefault()">
-            <div class="field full"><label>Nadpis</label><input type="text" id="a-title" required /></div>
-            <div class="field full"><label>Text oznámení</label><textarea id="a-content" required></textarea></div>
-          </form>
-        </div>
-        <div class="modal-foot">
-          <button class="btn" data-act="close" type="button">Zrušit</button>
-          <button class="btn primary" data-act="submit-announcement" type="button">Publikovat</button>
-        </div>
-      </div>
-    </div>`;
-    document.body.insertAdjacentHTML('beforeend', html);
-  }
-
   function openMemberModal(editM = null) {
     closeModal();
     const html = `
@@ -1106,7 +1068,6 @@
       localStorage.setItem('active_guideline_cat', state.activeGuidelineCategory);
       renderView();
     }
-    if (act === 'new-announcement') openAnnouncementModal();
     if (act === 'manual-add-member') openMemberModal();
     if (act === 'edit-member') {
       const m = Data.member(el.dataset.id);
@@ -1191,22 +1152,6 @@
       Data.saveGuideline(g);
       closeModal();
       toast('Směrnice uložena.');
-      renderApp();
-    }
-    if (act === 'submit-announcement') {
-      const title = $('#a-title')?.value;
-      const content = $('#a-content')?.value;
-      if (!title || !content) return toast('Vyplň všechna pole.', true);
-
-      const a = {
-        id: uid(),
-        title, content,
-        authorName: state.user.name,
-        createdAt: new Date().toISOString()
-      };
-      Data.saveAnnouncement(a);
-      closeModal();
-      toast('Oznámení publikováno.');
       renderApp();
     }
     if (act === 'submit-member') {
