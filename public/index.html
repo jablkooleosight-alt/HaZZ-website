@@ -263,7 +263,6 @@
     announcements: () => DB.announcements || [],
     divisions: () => DB.divisions || [],
     
-    // Načítání výjezdů ze serveru (Supabase)
     async fetchIncidentsFromApi() {
       try {
         const res = await fetch('/api/incidents');
@@ -420,20 +419,35 @@
     }
   }
 
-  // Live timer tick interval
+  // Live timer & real-time clock tick interval
   setInterval(() => {
+    const now = new Date();
+    const daysOfWeek = ['neděle', 'pondělí', 'úterý', 'středa', 'čtvrtek', 'pátek', 'sobota'];
+    const dayName = daysOfWeek[now.getDay()];
+    const dateFormatted = `${now.getDate()}. ${now.getMonth()+1}. ${now.getFullYear()}`;
+    const timeFormatted = now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    
+    const realClockEl = $('#real-time-clock');
+    if (realClockEl) {
+      realClockEl.textContent = `${dayName} ${dateFormatted} – ${timeFormatted}`;
+    }
+
     const u = state.user;
     if (!u) return;
     const dbUser = Data.member(u.id);
+    const timerEl = $('#live-duty-timer');
     if (dbUser && dbUser.onDuty && dbUser.dutyStart) {
       const diffSec = Math.floor((Date.now() - dbUser.dutyStart) / 1000);
       const totalSec = (dbUser.totalDutySeconds || 0) + diffSec;
       const h = Math.floor(totalSec / 3600);
       const m = Math.floor((totalSec % 3600) / 60);
       const s = totalSec % 60;
-      const timerEl = $('#live-duty-timer');
       if (timerEl) {
         timerEl.textContent = `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+      }
+    } else {
+      if (timerEl) {
+        timerEl.textContent = `0:00:00`;
       }
     }
   }, 1000);
@@ -452,7 +466,7 @@
 
     const dbUser = Data.member(u.id) || u;
     const activeSec = dbUser.onDuty && dbUser.dutyStart ? Math.floor((Date.now() - dbUser.dutyStart)/1000) : 0;
-    const totalSec = (dbUser.totalDutySeconds || 0) + activeSec;
+    const totalSec = dbUser.onDuty ? ((dbUser.totalDutySeconds || 0) + activeSec) : 0;
     const h = Math.floor(totalSec / 3600);
     const m = Math.floor((totalSec % 3600) / 60);
     const s = totalSec % 60;
@@ -463,10 +477,10 @@
     const now = new Date();
     const dayName = daysOfWeek[now.getDay()];
     const dateFormatted = `${now.getDate()}. ${now.getMonth()+1}.`;
+    const initialRealTime = `${dayName} ${now.getDate()}. ${now.getMonth()+1}. ${now.getFullYear()} – ${now.toLocaleTimeString('cs-CZ', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}`;
 
     const activeDutyMembers = Data.members().filter(m => m.onDuty);
 
-    // Dynamický výpočet výjezdů za posledních 7 a 30 dnů podle reálných dat
     const nowTime = now.getTime();
     const inc7Days = allIncidents.filter(i => {
       const d = new Date(i.datetime).getTime();
@@ -483,10 +497,14 @@
         <h1>Dobrý den, ${esc(u.name)}</h1>
         <p>${esc(rankOf(dbUser.rank || u.rank).name)} · číslo ${esc(dbUser.number || '000')}</p>
       </div>
-      <div style="display:flex; align-items:center; gap:16px;">
+      <div style="display:flex; align-items:center; gap:24px; flex-wrap:wrap;">
         <div style="text-align:right;">
-          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; line-height:1;">${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}</div>
-          <div class="muted" style="font-size:0.8rem;">${dayName} ${dateFormatted}</div>
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">Reálný čas a datum</div>
+          <div id="real-time-clock" style="font-family:var(--f-head); font-size:1.15rem; font-weight:600; line-height:1.2; color:var(--text);">${initialRealTime}</div>
+        </div>
+        <div style="text-align:right;">
+          <div class="muted" style="font-size:0.75rem; text-transform:uppercase; letter-spacing:0.05em;">Čas ve službě</div>
+          <div id="live-duty-timer" style="font-family:var(--f-head); font-size:1.6rem; font-weight:700; line-height:1;">${dbUser.onDuty ? `${h}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}` : '0:00:00'}</div>
         </div>
         <button class="btn ${dbUser.onDuty ? 'danger' : 'primary'}" data-act="toggle-duty">
           ${dbUser.onDuty ? 'Ukončit službu' : 'Nastoupit do služby'}
