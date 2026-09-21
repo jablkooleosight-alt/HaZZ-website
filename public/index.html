@@ -855,13 +855,13 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal" style="width:min(420px, 100%);">
-        <div class="modal-head"><h2>${esc(title)}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>${esc(title)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
           <p style="font-size:1.05rem;">${esc(message)}</p>
         </div>
         <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" id="confirm-yes-btn">Potvrdit</button>
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" id="confirm-yes-btn" type="button">Potvrdit</button>
         </div>
       </div>
     </div>`;
@@ -878,9 +878,9 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>${editInc ? 'Upravit výjezd' : 'Zapsat nový výjezd'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
-          <form id="inc-form" class="form-grid">
+          <form id="inc-form" class="form-grid" onsubmit="event.preventDefault()">
             <div class="field"><label>Místo zásahu</label><input type="text" id="i-loc" value="${editInc ? esc(editInc.location) : ''}" required /></div>
             <div class="field"><label>Typ události</label>
               <select id="i-type">${Object.entries(TYPES).map(([k, v]) => `<option value="${k}" ${editInc && editInc.type === k ? 'selected' : ''}>${v.name}</option>`).join('')}</select>
@@ -894,8 +894,8 @@
           </form>
         </div>
         <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-inc" data-id="${editInc ? editInc.id : ''}">Uložit</button>
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" data-act="submit-inc" data-id="${editInc ? editInc.id : ''}" type="button">Uložit</button>
         </div>
       </div>
     </div>`;
@@ -909,7 +909,7 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>Detail výjezdu: ${esc(inc.number)}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>Detail výjezdu: ${esc(inc.number)}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body" style="display:flex; flex-direction:column; gap:12px;">
           <div><b>Typ:</b> ${TYPES[inc.type]?.name || inc.type}</div>
           <div><b>Místo:</b> ${esc(inc.location)}</div>
@@ -918,7 +918,7 @@
           <div><b>Status:</b> ${inc.status === 'approved' ? 'Schváleno' : 'Čeká na schválení'}</div>
           <div><b>Popis:</b><p style="background:var(--bg); padding:10px; border-radius:var(--radius); margin-top:4px;">${esc(inc.description)}</p></div>
         </div>
-        <div class="modal-foot"><button class="btn primary" data-act="close">Zavřít</button></div>
+        <div class="modal-foot"><button class="btn primary" data-act="close" type="button">Zavřít</button></div>
       </div>
     </div>`;
     document.body.insertAdjacentHTML('beforeend', html);
@@ -929,9 +929,9 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>${editG ? 'Upravit směrnici' : 'Přidat novou směrnici'}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>${editG ? 'Upravit směrnici' : 'Přidat novou směrnici'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
-          <form class="form-grid">
+          <form class="form-grid" onsubmit="event.preventDefault()">
             <div class="field full"><label>Název směrnice</label><input type="text" id="g-title" value="${editG ? esc(editG.title) : ''}" required /></div>
             <div class="field full"><label>Divize / Kategorie</label>
               <select id="g-cat">${DIVISIONS.map(d => `<option value="${d}" ${editG && editG.category === d ? 'selected' : ''}>${d}</option>`).join('')}</select>
@@ -940,8 +940,8 @@
           </form>
         </div>
         <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-guideline" data-id="${editG ? editG.id : ''}">Uložit</button>
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" data-act="submit-guideline" data-id="${editG ? editG.id : ''}" type="button">Uložit</button>
         </div>
       </div>
     </div>`;
@@ -953,16 +953,16 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>Přidat oznámení</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>Přidat oznámení</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
-          <form class="form-grid">
+          <form class="form-grid" onsubmit="event.preventDefault()">
             <div class="field full"><label>Nadpis</label><input type="text" id="a-title" required /></div>
             <div class="field full"><label>Text oznámení</label><textarea id="a-content" required></textarea></div>
           </form>
         </div>
         <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-announcement">Publikovat</button>
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" data-act="submit-announcement" type="button">Publikovat</button>
         </div>
       </div>
     </div>`;
@@ -974,9 +974,9 @@
     const html = `
     <div class="overlay" id="overlay">
       <div class="modal">
-        <div class="modal-head"><h2>${editM ? 'Upravit člena' : 'Přidat člena manuálně'}</h2><button class="btn sm" data-act="close">✕</button></div>
+        <div class="modal-head"><h2>${editM ? 'Upravit člena' : 'Přidat člena manuálně'}</h2><button class="btn sm" data-act="close" type="button">✕</button></div>
         <div class="modal-body">
-          <form class="form-grid">
+          <form class="form-grid" onsubmit="event.preventDefault()">
             <div class="field"><label>Jméno a příjmení</label><input type="text" id="m-name" value="${editM ? esc(editM.name) : ''}" required /></div>
             <div class="field"><label>Služební číslo</label><input type="text" id="m-num" value="${editM ? esc(editM.number) : ''}" required /></div>
             <div class="field full"><label>Hodnost</label>
@@ -985,8 +985,8 @@
           </form>
         </div>
         <div class="modal-foot">
-          <button class="btn" data-act="close">Zrušit</button>
-          <button class="btn primary" data-act="submit-member" data-id="${editM ? editM.id : ''}">Uložit</button>
+          <button class="btn" data-act="close" type="button">Zrušit</button>
+          <button class="btn primary" data-act="submit-member" data-id="${editM ? editM.id : ''}" type="button">Uložit</button>
         </div>
       </div>
     </div>`;
