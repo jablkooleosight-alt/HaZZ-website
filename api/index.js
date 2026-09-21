@@ -18,7 +18,7 @@ const GUILD_ID = process.env.DISCORD_GUILD_ID;
 const REDIRECT_URI = process.env.REDIRECT_URI;
 const DUTY_WEBHOOK_URL = process.env.WEBHOOK_DUTY_LOG;
 
-// Inicializace Supabase klienta, pokud jsou proměnné dostupné
+// Inicializace Supabase klienta pro sdílení výjezdů a směrnic
 const supabaseUrl = process.env.SUPABASE_URL;
 const supabaseKey = process.env.SUPABASE_KEY;
 const supabase = (supabaseUrl && supabaseKey) ? createClient(supabaseUrl, supabaseKey) : null;
@@ -107,7 +107,7 @@ app.get('/api/auth/callback', async (req, res) => {
 });
 
 /**
- * Bezpečnostní Middleware: Ověření, zda má uživatel práva vedení přes Discord API.
+ * Middleware: Ověření práv vedení přes Discord API
  */
 async function requireLeadRole(req, res, next) {
     try {
@@ -124,7 +124,7 @@ async function requireLeadRole(req, res, next) {
         const hasLeadRole = memberRoles.includes("1547544440170741810");
 
         if (!hasLeadRole) {
-            return res.status(403).json({ error: 'Přístup odepřen: Nemáš oprávnění vedení.' });
+            return res.status(403).json({ error: 'Přístup odepřen: Tuto akci může provést pouze vedení.' });
         }
 
         next();
@@ -134,7 +134,7 @@ async function requireLeadRole(req, res, next) {
     }
 }
 
-// Endpoint pro načtení členů – filtrovaný pouze na HZS role (bez botů)
+// Endpoint pro členy (filtrováno na HZS role, bez botů)
 app.get('/api/members', async (req, res) => {
   try {
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
@@ -172,19 +172,94 @@ app.get('/api/members', async (req, res) => {
   }
 });
 
-// Endpoint pro smazání člena (chráněno pro vedení)
+// Smazání člena (pouze vedení)
 app.delete('/api/members/:id', requireLeadRole, async (req, res) => {
   const userId = req.params.id;
-
   try {
     await axios.delete(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
     });
-
     res.json({ success: true, message: 'Člen byl úspěšně odstraněn ze serveru.' });
   } catch (err) {
     console.error('Chyba při mazání člena:', err.response?.data || err.message);
     res.status(500).json({ error: 'Nelze odstranit člena z Discordu.' });
+  }
+});
+
+// --- SUPABASE ENDPOINTY PRO VÝJEZDY A SMĚRNICE ---
+
+// Načtení směrnic ze Supabase
+app.get('/api/guidelines', async (req, res) => {
+  if (!supabase) return res.json([]);
+  try {
+    const { data, error } = await supabase.from('guidelines').select('*');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Chyba při načítání směrnic:', err.message);
+    res.status(500).json({ error: 'Nelze načíst směrnice.' });
+  }
+});
+
+// Načtení výjezdů ze Supabase
+app.get('/api/incidents', async (req, res) => {
+  if (!supabase) return res.json([]);
+  try {
+    const { data, error } = await supabase.from('incidents').select('*');
+    if (error) throw error;
+    res.json(data || []);
+  } catch (err) {
+    console.error('Chyba při načítání výjezdů:', err.message);
+    res.status(500).json({ error: 'Nelze načíst výjezdy.' });
+  }
+});
+
+// Úprava výjezdu (pokud mění stav schválení nebo upravuje záznam, vyžaduje práva vedení, pokud jde o neschválený výjezd)
+app.put('/api/incidents/:id', async (req, res) => {
+  if (!supabase) return res.status(500).json({ error: 'Supabase není nakonfigurována.' });
+  
+  const incidentId = req.params.id;
+  const updates = req.body;
+
+  try {
+    // Zjistíme aktuální stav výjezdu v databázi
+    const { data: existing, error: fetchErr } = await supabase
+      .from('incidents')
+      .select('*')
+      .eq('id', incidentId)
+      .single();
+
+    if (fetchErr || !existing) {
+      return res.status(404).json({ error: 'Výjezd nenalezen.' });
+    }
+
+    // Pokud je výjezd ve stavu "Čeká na schválení" nebo se mění status, ověříme zda má uživatel práva vedení
+    if (existing.status === 'Čeká na schválení' || updates.status) {
+      const userId = req.headers['x-user-id'];
+      if (!userId) return res.status(401).json({ error: 'Neautorizováno.' });
+
+      const guildMemberRes = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
+        headers: { Authorization: `Bot ${BOT_TOKEN}` }
+      });
+      const hasLeadRole = (guildMemberRes.data.roles || []).includes("1547544440170741810");
+
+      if (!hasLeadRole) {
+        return res.status(403).json({ error: 'Nemáš oprávnění upravovat nebo schvalovat tento výjezd.' });
+      }
+    }
+
+    // Provedeme aktualizaci v Supabase
+    const { data, error: updateErr } = await supabase
+      .from('incidents')
+      .update(updates)
+      .eq('id', incidentId)
+      .select();
+
+    if (updateErr) throw updateErr;
+    res.json({ success: true, data });
+  } catch (err) {
+    console.error('Chyba při aktualizaci výjezdu:', err.message);
+    res.status(500).json({ error: 'Nelze aktualizovat výjezd.' });
   }
 });
 
