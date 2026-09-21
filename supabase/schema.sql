@@ -109,14 +109,36 @@ alter table vehicles add column if not exists status text;
 alter table vehicles add column if not exists note text;
 
 -- ==================== RLS ====================
--- Autorizaci (kdo smí co dělat) řeší backend (api/index.js) podle hodnosti
--- z podepsané session cookie - Supabase klíč používá výhradně server, nikdy
--- prohlížeč. Row Level Security proto na těchto tabulkách vypínáme, aby
--- nešlapala backendu pod nohy; pokud chceš RLS zapnuté jako druhou vrstvu
--- obrany, je potřeba místo "disable" napsat policy povolující přístup roli,
--- pod kterou backend do Supabase přistupuje.
+-- Autorizaci (kdo smí co dělat - hodnost, vlastnictví výjezdu apod.) řeší
+-- backend (api/index.js) podle hodnosti z podepsané session cookie. Klíč do
+-- Supabase drží výhradně server, nikdy prohlížeč, takže tady nejde o RLS
+-- podle přihlášeného Supabase uživatele (žádného nemáme - autentizace je
+-- vlastní přes Discord), ale jen o to, aby tabulky nebyly čitelné/zapisovatelné
+-- pro kohokoliv, kdo by náhodou získal klíč přímo (obrana do hloubky).
+-- RLS proto zapínáme a povolujeme přístup rolím, pod kterými se backend do
+-- Supabase hlásí (anon = klíč SUPABASE_ANON_KEY/NEXT_PUBLIC_SUPABASE_ANON_KEY;
+-- authenticated přidáno pro jistotu, kdyby se použil jiný typ klíče/JWT).
+-- Pozor: pokud by v proměnné omylem skončil sb_secret_/service_role klíč,
+-- RLS se úplně obchází bez ohledu na policy níže - vždy používej publishable/
+-- anon klíč, ne secret klíč.
 
-alter table members disable row level security;
-alter table incidents disable row level security;
-alter table guidelines disable row level security;
-alter table vehicles disable row level security;
+alter table members enable row level security;
+alter table incidents enable row level security;
+alter table guidelines enable row level security;
+alter table vehicles enable row level security;
+
+drop policy if exists "backend_full_access" on members;
+create policy "backend_full_access" on members
+  for all to anon, authenticated using (true) with check (true);
+
+drop policy if exists "backend_full_access" on incidents;
+create policy "backend_full_access" on incidents
+  for all to anon, authenticated using (true) with check (true);
+
+drop policy if exists "backend_full_access" on guidelines;
+create policy "backend_full_access" on guidelines
+  for all to anon, authenticated using (true) with check (true);
+
+drop policy if exists "backend_full_access" on vehicles;
+create policy "backend_full_access" on vehicles
+  for all to anon, authenticated using (true) with check (true);
