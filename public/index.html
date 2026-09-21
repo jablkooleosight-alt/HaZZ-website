@@ -304,12 +304,19 @@
     const root = $('#root');
     if (!root) return;
 
-    let loginUrl = '#';
+    let loginUrl = '/api/auth/login';
     try {
       const res = await fetch('/api/auth/url');
-      const data = await res.json();
-      loginUrl = data.url;
-    } catch(e) { console.error('Nelze načíst Auth URL', e); }
+      if (res.ok) {
+        const contentType = res.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          const data = await res.json();
+          if (data && data.url) loginUrl = data.url;
+        }
+      }
+    } catch(e) { 
+      console.warn('Backend /api/auth/url vrátil chybu nebo nepřístupný JSON, použita výchozí URL:', e); 
+    }
 
     root.innerHTML = `
     <div class="login"><div class="login-card">
