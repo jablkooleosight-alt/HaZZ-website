@@ -6,7 +6,7 @@ const app = express();
 
 // Povolení CORS s credentials, aby fungovaly session/cookies mezi klientem a serverem
 app.use(cors({
-  origin: true, // nebo specifikuj svou doménu
+  origin: true, 
   credentials: true
 }));
 app.use(express.json());
@@ -92,9 +92,6 @@ app.get('/api/auth/callback', async (req, res) => {
       roles: memberData.roles || []
     };
 
-    // Zde můžeš data uložit do session, pokud používáš express-session
-    // req.session.user = userData;
-
     const encodedUser = encodeURIComponent(JSON.stringify(userData));
     res.redirect(`/#/login-success?user=${encodedUser}`);
 
@@ -105,25 +102,20 @@ app.get('/api/auth/callback', async (req, res) => {
 });
 
 /**
- * Bezpečnostní Middleware: Ověření, zda má uživatel práva vedení přímo přes Discord API nebo uložená data.
+ * Bezpečnostní Middleware: Ověření, zda má uživatel práva vedení (lze použít pro budoucí admin endpointy).
  */
 async function requireLeadRole(req, res, next) {
     try {
-        // Příklad ověření přes hlavičku nebo token, případně session. 
-        // Zde ověřujeme např. podle uživatelského ID poslaného v hlavičce nebo tokenu, 
-        // abychom se vyhnuli podvržení dat z frontendu.
         const userId = req.headers['x-user-id']; 
         if (!userId) {
             return res.status(401).json({ error: 'Neautorizováno: Chybí identifikace uživatele.' });
         }
 
-        // Ověříme aktuální role uživatele přímo přes Discord Bot API (nejbezpečnější způsob)
         const guildMemberRes = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members/${userId}`, {
             headers: { Authorization: `Bot ${BOT_TOKEN}` }
         });
 
         const memberRoles = guildMemberRes.data.roles || [];
-        // Zde zkontroluj, zda má uživatel ID role odpovídající vedení (např. "1547544440170741810")
         const hasLeadRole = memberRoles.includes("1547544440170741810");
 
         if (!hasLeadRole) {
@@ -137,8 +129,8 @@ async function requireLeadRole(req, res, next) {
     }
 }
 
-// Endpoint chráněný middlewarem requireLeadRole
-app.get('/api/members', requireLeadRole, async (req, res) => {
+// Endpoint pro načtení členů – nyní přístupný všem přihlášeným uživatelům (bez restrikce requireLeadRole)
+app.get('/api/members', async (req, res) => {
   try {
     const response = await axios.get(`https://discord.com/api/v10/guilds/${GUILD_ID}/members?limit=1000`, {
       headers: { Authorization: `Bot ${BOT_TOKEN}` }
