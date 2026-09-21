@@ -8,188 +8,211 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <style>
     body { background-color: #0d0f12; color: #e2e8f0; font-family: ui-sans-serif, system-ui, sans-serif; }
-    .sidebar-item { display: flex; items-center: center; gap: 0.75rem; padding: 0.6rem 1rem; border-radius: 0.375rem; color: #94a3b8; font-weight: 500; cursor: pointer; transition: all 0.15s; }
+    .sidebar-item { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1rem; border-radius: 0.375rem; color: #94a3b8; font-weight: 500; cursor: pointer; transition: all 0.15s; }
     .sidebar-item:hover, .sidebar-item.active { background-color: #1e293b; color: #ffffff; }
     .sidebar-item.active { border-left: 3px solid #ef4444; }
   </style>
 </head>
 <body class="h-screen flex overflow-hidden">
 
-  <!-- LEVÝ POSTRANNÍ PANEL -->
-  <aside class="w-64 bg-[#12161c] border-r border-slate-800/80 flex flex-col justify-between p-4 flex-shrink-0">
-    <div>
-      <!-- Logo -->
-      <div class="flex items-center gap-3 px-2 py-3 mb-6 border-b border-slate-800/60">
-        <div class="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-bold">
-          <i class="fa-solid fa-fire-extinguisher"></i>
-        </div>
-        <div>
-          <h1 class="font-bold text-white leading-tight">HZS System</h1>
-          <p class="text-xs text-slate-500">Informační portál</p>
-        </div>
+  <!-- PŘIHLAŠOVACÍ OBRAZOVKA (Karta z videa) -->
+  <div id="login-screen" class="fixed inset-0 bg-[#0d0f12] flex items-center justify-center z-50 p-4">
+    <div class="bg-[#12161c] border border-slate-800 rounded-xl p-8 max-w-md w-full text-center shadow-2xl space-y-6">
+      <div>
+        <h2 class="text-2xl font-bold text-white mb-2">HZS System</h2>
+        <p class="text-xs text-slate-400">Pro přístup do výjezdového portálu se přihlaste svým Discord účtem.</p>
       </div>
 
-      <!-- Navigace -->
-      <nav class="space-y-1">
-        <div onclick="switchTab('dashboard')" id="nav-dashboard" class="sidebar-item active">
-          <i class="fa-solid fa-house text-slate-400 w-5"></i><span>Přehled</span>
-        </div>
-        <div onclick="switchTab('vyjezdy')" id="nav-vyjezdy" class="sidebar-item">
-          <i class="fa-solid fa-truck-medical text-slate-400 w-5"></i><span>Výjezdy</span>
-        </div>
-        <div onclick="switchTab('smernice')" id="nav-smernice" class="sidebar-item">
-          <i class="fa-solid fa-book-bookmark text-slate-400 w-5"></i><span>Směrnice</span>
-        </div>
-        <div onclick="switchTab('members')" id="nav-members" class="sidebar-item">
-          <i class="fa-solid fa-users text-slate-400 w-5"></i><span>Členové</span>
-        </div>
-        <div onclick="switchTab('vedeni')" id="nav-vedeni" class="sidebar-item flex justify-between items-center">
-          <div class="flex items-center gap-3">
-            <i class="fa-solid fa-shield-halved text-slate-400 w-5"></i><span>Vedení</span>
-          </div>
-          <span class="bg-amber-500/20 text-amber-400 text-xs px-1.5 py-0.5 rounded font-bold">0</span>
-        </div>
-      </nav>
-    </div>
-
-    <!-- Profil dole -->
-    <div class="border-t border-slate-800/80 pt-4 px-2">
-      <div class="flex items-center gap-3 mb-3">
-        <img id="user-avatar" src="https://cdn.discordapp.com/embed/avatars/0.png" class="w-10 h-10 rounded-full border border-slate-700">
-        <div class="overflow-hidden">
-          <p id="user-name" class="text-sm font-bold text-white truncate">(LOA) MUDr. Ruby White, Bc</p>
-          <p id="user-rank" class="text-xs text-slate-400 truncate">Podpraporčík</p>
-        </div>
-      </div>
-      <button class="w-full text-left text-xs text-slate-400 hover:text-red-400 flex items-center gap-2 py-1">
-        <i class="fa-solid fa-right-from-bracket"></i> Odhlásit se
+      <button onclick="loginWithDiscord()" class="w-full bg-[#5865F2] hover:bg-[#4752C4] text-white font-semibold py-3 px-4 rounded-lg flex items-center justify-center gap-3 transition">
+        <i class="fa-brands fa-discord text-xl"></i>
+        <span>Přihlásit se přes Discord</span>
       </button>
+
+      <div class="text-xs text-slate-500 pt-2 border-t border-slate-800/80">
+        Nenalezli jste přístup? Připojte se na oficiální Discord server.
+      </div>
     </div>
-  </aside>
+  </div>
 
-  <!-- HLAVNÍ OBSAHOVÁ ČÁST -->
-  <main class="flex-1 bg-[#0d0f12] overflow-y-auto p-8">
-
-    <!-- TAB 1: PŘEHLED (DASHBOARD) -->
-    <section id="tab-dashboard" class="space-y-6">
-      <div class="flex justify-between items-start">
-        <div>
-          <h2 id="welcome-title" class="text-2xl font-bold text-white">Vítej, (LOA) MUDr. Ruby White, Bc</h2>
-          <p class="text-sm text-slate-400 mt-0.5">Hodnost: <span id="welcome-rank" class="text-slate-300">Podpraporčík</span></p>
+  <!-- HLAVNÍ APLIKACE (Skrytá dokud se uživatel nepřihlásí) -->
+  <div id="app-screen" class="w-full h-full flex hidden">
+    
+    <!-- LEVÝ POSTRANNÍ PANEL -->
+    <aside class="w-64 bg-[#12161c] border-r border-slate-800/80 flex flex-col justify-between p-4 flex-shrink-0">
+      <div>
+        <!-- Logo -->
+        <div class="flex items-center gap-3 px-2 py-3 mb-6 border-b border-slate-800/60">
+          <div class="w-8 h-8 bg-red-600 rounded flex items-center justify-center text-white font-bold">
+            <i class="fa-solid fa-fire-extinguisher"></i>
+          </div>
+          <div>
+            <h1 class="font-bold text-white leading-tight">HZS System</h1>
+            <p class="text-xs text-slate-500">Informační portál</p>
+          </div>
         </div>
-        <button class="bg-red-600 hover:bg-red-500 text-white font-semibold text-sm px-4 py-2 rounded-lg transition shadow-lg shadow-red-900/30">
-          Nastoupit do služby
+
+        <!-- Navigace -->
+        <nav class="space-y-1">
+          <div onclick="switchTab('dashboard')" id="nav-dashboard" class="sidebar-item active">
+            <i class="fa-solid fa-house text-slate-400 w-5"></i><span>Přehled</span>
+          </div>
+          <div onclick="switchTab('vyjezdy')" id="nav-vyjezdy" class="sidebar-item">
+            <i class="fa-solid fa-truck-medical text-slate-400 w-5"></i><span>Výjezdy</span>
+          </div>
+          <div onclick="switchTab('smernice')" id="nav-smernice" class="sidebar-item">
+            <i class="fa-solid fa-book-bookmark text-slate-400 w-5"></i><span>Směrnice</span>
+          </div>
+          <div onclick="switchTab('members')" id="nav-members" class="sidebar-item">
+            <i class="fa-solid fa-users text-slate-400 w-5"></i><span>Členové</span>
+          </div>
+          <div onclick="switchTab('vedeni')" id="nav-vedeni" class="sidebar-item flex justify-between items-center">
+            <div class="flex items-center gap-3">
+              <i class="fa-solid fa-shield-halved text-slate-400 w-5"></i><span>Vedení</span>
+            </div>
+            <span class="bg-amber-500/20 text-amber-400 text-xs px-1.5 py-0.5 rounded font-bold">0</span>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Profil dole -->
+      <div class="border-t border-slate-800/80 pt-4 px-2">
+        <div class="flex items-center gap-3 mb-3">
+          <img id="user-avatar" src="https://cdn.discordapp.com/embed/avatars/0.png" class="w-10 h-10 rounded-full border border-slate-700">
+          <div class="overflow-hidden">
+            <p id="user-name" class="text-sm font-bold text-white truncate">Načítání...</p>
+            <p id="user-rank" class="text-xs text-slate-400 truncate">Příslušník HZS</p>
+          </div>
+        </div>
+        <button onclick="logout()" class="w-full text-left text-xs text-slate-400 hover:text-red-400 flex items-center gap-2 py-1 transition">
+          <i class="fa-solid fa-right-from-bracket"></i> Odhlásit se
         </button>
       </div>
+    </aside>
 
-      <!-- KARTY STATISTIK -->
-      <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
-          <span class="text-3xl font-bold text-white">0</span>
-          <p class="text-xs text-slate-400 mt-1">Moje výjezdy</p>
-        </div>
-        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
-          <span class="text-3xl font-bold text-white">0 €</span>
-          <p class="text-xs text-slate-400 mt-1">Moje finance za výjezdy</p>
-        </div>
-        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
-          <span class="text-3xl font-bold text-white">0h 0m</span>
-          <p class="text-xs text-slate-400 mt-1">Odsloužený čas</p>
-        </div>
-      </div>
+    <!-- HLAVNÍ OBSAHOVÁ ČÁST -->
+    <main class="flex-1 bg-[#0d0f12] overflow-y-auto p-8">
 
-      <!-- STATISTIKA VÝJEZDŮ ZA 30 DNÍ -->
-      <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-4">
+      <!-- TAB 1: PŘEHLED (DASHBOARD) -->
+      <section id="tab-dashboard" class="space-y-6">
+        <div class="flex justify-between items-start">
           <div>
-            <h3 class="font-bold text-white">Statistika výjezdů za 30 dní (Užší Vedení)</h3>
-            <p class="text-xs text-slate-500 mt-0.5">Od posledního resetu (21. 9. 2026) bylo zaznamenáno 0 výjezdů.</p>
+            <h2 id="welcome-title" class="text-2xl font-bold text-white">Vítej v systému</h2>
+            <p class="text-sm text-slate-400 mt-0.5">Hodnost: <span id="welcome-rank" class="text-slate-300">-</span></p>
           </div>
-          <button class="bg-red-950/40 hover:bg-red-900/50 text-red-400 border border-red-800/40 text-xs px-3 py-1.5 rounded transition">
-            Resetovat měsíční statistiku
+          <button class="bg-red-600 hover:bg-red-500 text-white font-semibold text-sm px-4 py-2 rounded-lg transition shadow-lg shadow-red-900/30">
+            Nastoupit do služby
           </button>
         </div>
-      </div>
 
-      <!-- POSLEDNÍ DOSTUPNÉ VÝJEZDY -->
-      <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
-        <div class="flex justify-between items-center mb-6">
-          <h3 class="font-bold text-white">Poslední dostupné výjezdy</h3>
+        <!-- KARTY STATISTIK -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
+            <span class="text-3xl font-bold text-white">0</span>
+            <p class="text-xs text-slate-400 mt-1">Moje výjezdy</p>
+          </div>
+          <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
+            <span class="text-3xl font-bold text-white">0 €</span>
+            <p class="text-xs text-slate-400 mt-1">Moje finance za výjezdy</p>
+          </div>
+          <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-5">
+            <span class="text-3xl font-bold text-white">0h 0m</span>
+            <p class="text-xs text-slate-400 mt-1">Odsloužený čas</p>
+          </div>
+        </div>
+
+        <!-- STATISTIKA VÝJEZDŮ ZA 30 DNÍ -->
+        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-4">
+            <div>
+              <h3 class="font-bold text-white">Statistika výjezdů za 30 dní (Užší Vedení)</h3>
+              <p class="text-xs text-slate-500 mt-0.5">Od posledního resetu bylo zaznamenáno 0 výjezdů.</p>
+            </div>
+            <button class="bg-red-950/40 hover:bg-red-900/50 text-red-400 border border-red-800/40 text-xs px-3 py-1.5 rounded transition">
+              Resetovat měsíční statistiku
+            </button>
+          </div>
+        </div>
+
+        <!-- POSLEDNÍ DOSTUPNÉ VÝJEZDY -->
+        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
+          <div class="flex justify-between items-center mb-6">
+            <h3 class="font-bold text-white">Poslední dostupné výjezdy</h3>
+            <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition">
+              Zapsat výjezd
+            </button>
+          </div>
+          <p class="text-sm text-slate-500 py-4 text-center">Žádné dostupné výjezdy.</p>
+        </div>
+      </section>
+
+      <!-- TAB 2: VÝJEZDY -->
+      <section id="tab-vyjezdy" class="space-y-6 hidden">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-bold text-white">Výjezdy</h2>
+            <p class="text-xs text-slate-400">Všechny výjezdy jednotky</p>
+          </div>
           <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition">
             Zapsat výjezd
           </button>
         </div>
-        <p class="text-sm text-slate-500 py-4 text-center">Žádné dostupné výjezdy.</p>
-      </div>
-    </section>
-
-    <!-- TAB 2: VÝJEZDY -->
-    <section id="tab-vyjezdy" class="space-y-6 hidden">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-xl font-bold text-white">Výjezdy</h2>
-          <p class="text-xs text-slate-400">Všechny výjezdy jednotky</p>
+        <div id="vyjezdy-container" class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
+          <p class="text-sm text-slate-500 py-4 text-center">Žádné výjezdy.</p>
         </div>
-        <button onclick="openModal('vyjezd')" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition">
-          Zapsat výjezd
-        </button>
-      </div>
-      <div id="vyjezdy-container" class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
-        <p class="text-sm text-slate-500 py-4 text-center">Žádné výjezdy.</p>
-      </div>
-    </section>
+      </section>
 
-    <!-- TAB 3: SMĚRNICE -->
-    <section id="tab-smernice" class="space-y-6 hidden">
-      <div class="flex justify-between items-center">
-        <div>
-          <h2 class="text-xl font-bold text-white">Směrnice a dokumenty</h2>
-          <p class="text-xs text-slate-400">Interní předpisy HZS</p>
+      <!-- TAB 3: SMĚRNICE -->
+      <section id="tab-smernice" class="space-y-6 hidden">
+        <div class="flex justify-between items-center">
+          <div>
+            <h2 class="text-xl font-bold text-white">Směrnice a dokumenty</h2>
+            <p class="text-xs text-slate-400">Interní předpisy HZS</p>
+          </div>
+          <button onclick="openModal('smernice')" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition">
+            Přidat směrnici
+          </button>
         </div>
-        <button onclick="openModal('smernice')" class="bg-red-600 hover:bg-red-500 text-white font-semibold text-xs px-3.5 py-2 rounded-lg transition">
-          Přidat směrnici
-        </button>
-      </div>
-      <div id="smernice-container" class="space-y-4">
-        <!-- Dynamicky načtené směrnice -->
-      </div>
-    </section>
+        <div id="smernice-container" class="space-y-4">
+          <!-- Dynamicky načtené směrnice -->
+        </div>
+      </section>
 
-    <!-- TAB 4: ČLENOVÉ -->
-    <section id="tab-members" class="space-y-6 hidden">
-      <div>
-        <h2 class="text-xl font-bold text-white">Seznam Členů z Discordu</h2>
-        <p class="text-xs text-slate-400">Aktuální přehled příslušníků HZS seřazený dle hodností</p>
-      </div>
-      <div class="bg-[#12161c] border border-slate-800/80 rounded-xl overflow-hidden">
-        <table class="w-full text-left text-sm text-slate-300">
-          <thead class="bg-slate-900/80 text-xs text-slate-400 border-b border-slate-800">
-            <tr>
-              <th class="py-3 px-4">Člen</th>
-              <th class="py-3 px-4">Hodnost</th>
-              <th class="py-3 px-4">Služební číslo</th>
-              <th class="py-3 px-4">Odslouženo</th>
-            </tr>
-          </thead>
-          <tbody id="members-table-body" class="divide-y divide-slate-800/60">
-            <tr><td colspan="4" class="py-4 text-center text-slate-500">Načítání členů...</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
+      <!-- TAB 4: ČLENOVÉ -->
+      <section id="tab-members" class="space-y-6 hidden">
+        <div>
+          <h2 class="text-xl font-bold text-white">Seznam Členů z Discordu</h2>
+          <p class="text-xs text-slate-400">Aktuální přehled příslušníků HZS seřazený dle hodností</p>
+        </div>
+        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl overflow-hidden">
+          <table class="w-full text-left text-sm text-slate-300">
+            <thead class="bg-slate-900/80 text-xs text-slate-400 border-b border-slate-800">
+              <tr>
+                <th class="py-3 px-4">Člen</th>
+                <th class="py-3 px-4">Hodnost</th>
+                <th class="py-3 px-4">Služební číslo</th>
+                <th class="py-3 px-4">Odslouženo</th>
+              </tr>
+            </thead>
+            <tbody id="members-table-body" class="divide-y divide-slate-800/60">
+              <tr><td colspan="4" class="py-4 text-center text-slate-500">Načítání členů...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
 
-    <!-- TAB 5: VEDENÍ -->
-    <section id="tab-vedeni" class="space-y-6 hidden">
-      <div>
-        <h2 class="text-xl font-bold text-white">Správa Vedení</h2>
-        <p class="text-xs text-slate-400">Výjezdy ke schválení</p>
-      </div>
-      <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
-        <p class="text-sm text-slate-500 py-4 text-center">Žádné výjezdy nečekají na schválení.</p>
-      </div>
-    </section>
+      <!-- TAB 5: VEDENÍ -->
+      <section id="tab-vedeni" class="space-y-6 hidden">
+        <div>
+          <h2 class="text-xl font-bold text-white">Správa Vedení</h2>
+          <p class="text-xs text-slate-400">Výjezdy ke schválení</p>
+        </div>
+        <div class="bg-[#12161c] border border-slate-800/80 rounded-xl p-6">
+          <p class="text-sm text-slate-500 py-4 text-center">Žádné výjezdy nečekají na schválení.</p>
+        </div>
+      </section>
 
-  </main>
+    </main>
+  </div>
 
   <!-- MODÁLNÍ OKNO -->
   <div id="modal" class="fixed inset-0 bg-black/80 backdrop-blur-sm flex justify-center items-center hidden z-50 p-4">
@@ -198,7 +221,6 @@
       <h3 id="modal-title" class="text-lg font-bold text-white mb-4">Správa</h3>
       <form id="modal-form" onsubmit="handleFormSubmit(event)" class="space-y-4">
         <input type="hidden" id="form-type" />
-        <input type="hidden" id="form-id" />
         <div>
           <label class="block text-xs text-slate-400 mb-1">Název / Nadpis</label>
           <input type="text" id="input-title" required class="w-full bg-[#0d0f12] border border-slate-800 rounded p-2 text-sm text-white focus:border-red-500 outline-none">
@@ -228,6 +250,44 @@
   </div>
 
   <script>
+    // DISCORD AUTH LOGIKA
+    function loginWithDiscord() {
+      window.location.href = '/api/auth/login';
+    }
+
+    function logout() {
+      window.location.href = '/api/auth/logout';
+    }
+
+    async function checkAuth() {
+      try {
+        const res = await fetch('/api/auth/me');
+        if (!res.ok) throw new Error('Unauthenticated');
+        const user = await res.json();
+
+        // Zobrazit aplikaci
+        document.getElementById('login-screen').classList.add('hidden');
+        document.getElementById('app-screen').classList.remove('hidden');
+
+        // Nastavit profil
+        document.getElementById('user-name').innerText = user.displayName || user.username;
+        document.getElementById('welcome-title').innerText = `Vítej, ${user.displayName || user.username}`;
+        
+        const rank = user.roles && user.roles.length > 0 ? user.roles[0] : 'Příslušník HZS';
+        document.getElementById('user-rank').innerText = rank;
+        document.getElementById('welcome-rank').innerText = rank;
+
+        if (user.avatar) {
+          document.getElementById('user-avatar').src = user.avatar;
+        }
+      } catch (err) {
+        // Uživatel není přihlášen -> zobrazíme login kartu
+        document.getElementById('login-screen').classList.remove('hidden');
+        document.getElementById('app-screen').classList.add('hidden');
+      }
+    }
+
+    // TAB NAVIGACE
     function switchTab(tabId) {
       document.querySelectorAll('main > section').forEach(el => el.classList.add('hidden'));
       document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
@@ -243,6 +303,7 @@
       if (tabId === 'vyjezdy') loadVyjezdy();
     }
 
+    // NAČÍTÁNÍ DATA
     async function loadMembers() {
       try {
         const res = await fetch('/api?action=members');
@@ -269,9 +330,7 @@
           `;
           tbody.appendChild(row);
         });
-      } catch (err) {
-        console.error(err);
-      }
+      } catch (err) { console.error(err); }
     }
 
     async function loadSmernice() {
@@ -366,6 +425,9 @@
       if (type === 'smernice') loadSmernice();
       if (type === 'vyjezd') loadVyjezdy();
     }
+
+    // SPŮŠTĚNÍ KONTROLY PŘI NAČTENÍ STRÁNKY
+    checkAuth();
   </script>
 </body>
 </html>
