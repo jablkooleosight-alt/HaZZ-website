@@ -176,6 +176,7 @@
   const INNER_LEAD_LEVEL = 9;
   const DIRECTOR_LEVEL = 10;
   const MAJOR_LEVEL = 10;
+  const AUTO_APPROVE_LEVEL = 6; // ppor a vyšší
 
   const rankOf = key => RANKS.find(r => r.key === key) || RANKS[0];
 
@@ -311,7 +312,7 @@
       if (idx >= 0) DB.incidents[idx] = inc;
       else {
         DB.incidents.unshift(inc);
-        if (inc.memberIds) {
+        if (inc.memberIds && inc.status === 'approved') {
           inc.memberIds.forEach(mId => {
             const member = Data.member(mId);
             if (member) {
@@ -402,6 +403,7 @@
   const isInnerLead = u => u && rankOf(u.rank).level >= INNER_LEAD_LEVEL;
   const isDirector = u => u && rankOf(u.rank).level >= DIRECTOR_LEVEL;
   const isMajorOrHigher = u => u && rankOf(u.rank).level >= MAJOR_LEVEL;
+  const canAutoApprove = u => u && rankOf(u.rank).level >= AUTO_APPROVE_LEVEL;
 
   function toast(msg, isErr = false) {
     const container = $('#toasts');
@@ -597,7 +599,7 @@
     </div>
     <div class="panel">
       <div class="table-wrap"><table>
-        <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th><th>Akce</th></tr></thead>
+        <thead><tr><th>Číslo</th><th>Typ</th><th>Místo</th><th>Datum</th><th>Status</th><th>Akce</th></tr></thead>
         <tbody>
           ${list.map(i => `
             <tr>
@@ -605,6 +607,9 @@
               <td>${esc(TYPES[i.type]?.name || i.type)}</td>
               <td>${esc(i.location)}</td>
               <td>${fmtDT(i.datetime)}</td>
+              <td>
+                ${i.status === 'approved' ? '<span class="tag approved">Schváleno</span>' : '<span class="tag pending">Čeká na schválení</span>'}
+              </td>
               <td>
                 <div style="display:flex; gap:6px;">
                   <button class="btn sm" data-act="open-incident-detail" data-id="${i.id}">Zobrazit</button>
@@ -614,7 +619,7 @@
                   ` : ''}
                 </div>
               </td>
-            </tr>`).join('') || '<tr><td colspan="5" class="empty">Žádné výjezdy.</td></tr>'}
+            </tr>`).join('') || '<tr><td colspan="6" class="empty">Žádné výjezdy.</td></tr>'}
         </tbody>
       </table></div>
     </div>`;
@@ -868,6 +873,7 @@
           <div><b>Místo:</b> ${esc(inc.location)}</div>
           <div><b>Datum:</b> ${fmtDT(inc.datetime)}</div>
           <div><b>Velitel zásahu:</b> ${esc(Data.member(inc.commanderId)?.name || 'Neznámý')}</div>
+          <div><b>Status:</b> ${inc.status === 'approved' ? 'Schváleno' : 'Čeká na schválení'}</div>
           <div><b>Popis:</b><p style="background:var(--bg); padding:10px; border-radius:var(--radius); margin-top:4px;">${esc(inc.description)}</p></div>
         </div>
         <div class="modal-foot"><button class="btn primary" data-act="close">Zavřít</button></div>
@@ -1103,6 +1109,7 @@
       if (!loc || !desc) return toast('Vyplň všechna pole.', true);
 
       const existingInc = editId ? Data.incidents().find(x => x.id === editId) : null;
+      const userRankOk = canAutoApprove(state.user);
       const inc = {
         id: editId || uid(),
         number: existingInc ? existingInc.number : `VYJ-2026-000${Data.incidents().length + 1}`,
@@ -1113,7 +1120,7 @@
         commanderId: state.user.id,
         description: desc,
         result: 'V řešení',
-        status: isLead(state.user) ? 'approved' : 'pending',
+        status: userRankOk ? 'approved' : 'pending',
         authorId: state.user.id
       };
 
