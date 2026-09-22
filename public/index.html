@@ -396,6 +396,13 @@
       } catch (e) {}
     },
 
+    // Pozor: pokud server požadavek explicitně zamítne (401/403/...), NIKDY
+    // se to nesmí tvářit jako úspěch tím, že se změna promítne jen lokálně -
+    // to by v UI vypadalo jako "uloženo", i když se ve skutečnosti nic
+    // nezměnilo a při dalším načtení dat by to zase zmizelo (přesně tenhle
+    // bug dřív dovolil, aby úprava cizího výjezdu bez oprávnění v prohlížeči
+    // "vypadala", že prošla). Lokální stav proto měníme jen když API
+    // odpoví 2xx; jinak zůstává beze změny a volající zobrazí chybu.
     async saveIncidentApi(incData, isEdit = false) {
       try {
         const method = isEdit ? 'PATCH' : 'POST';
@@ -423,22 +430,16 @@
 
     // Číslo výjezdu, stav schválení, velitel a prémie za výjezd určuje server
     // (viz api/index.js), aby je nešlo obejít úpravou dat v prohlížeči.
-    // Po uložení proto vždy načteme autoritativní stav z API.
     async saveIncident(inc) {
-      const isNew = !DB.incidents.some(x => x.id === inc.id);
-      const ok = await Data.saveIncidentApi(inc, !isNew);
-      if (!ok) {
-        const idx = DB.incidents.findIndex(x => x.id === inc.id);
-        if (idx >= 0) DB.incidents[idx] = inc;
-        else DB.incidents.unshift(inc);
-        persist();
-      }
-      return ok;
+      const isEdit = DB.incidents.some(x => x.id === inc.id);
+      return await Data.saveIncidentApi(inc, isEdit);
     },
     async deleteIncident(id) {
       const ok = await Data.deleteIncidentApi(id);
-      if (ok) DB.incidents = DB.incidents.filter(x => x.id !== id);
-      persist();
+      if (ok) {
+        DB.incidents = DB.incidents.filter(x => x.id !== id);
+        persist();
+      }
       return ok;
     },
     async fetchVehiclesFromApi() {
@@ -455,7 +456,6 @@
     },
     async saveVehicle(v) {
       const isEdit = (DB.vehicles || []).some(x => x.id === v.id);
-      let ok = false;
       try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/vehicles/${v.id}` : '/api/vehicles';
@@ -466,27 +466,23 @@
         });
         if (res.ok) {
           await Data.fetchVehiclesFromApi();
-          ok = true;
+          return true;
         }
       } catch (e) {}
-      if (!ok) {
-        if (!DB.vehicles) DB.vehicles = [];
-        const idx = DB.vehicles.findIndex(x => x.id === v.id);
-        if (idx >= 0) DB.vehicles[idx] = v;
-        else DB.vehicles.push(v);
-        persist();
-      }
-      return ok;
+      return false;
     },
     async deleteVehicle(id) {
-      let ok = false;
       try {
         const res = await fetch(`/api/vehicles/${id}`, { method: 'DELETE' });
-        ok = res.ok;
+        if (res.ok) {
+          if (DB.vehicles) {
+            DB.vehicles = DB.vehicles.filter(x => x.id !== id);
+            persist();
+          }
+          return true;
+        }
       } catch (e) {}
-      if (ok && DB.vehicles) DB.vehicles = DB.vehicles.filter(x => x.id !== id);
-      persist();
-      return ok;
+      return false;
     },
     async fetchGuidelinesFromApi() {
       try {
@@ -502,7 +498,6 @@
     },
     async saveGuideline(g) {
       const isEdit = DB.guidelines.some(x => x.id === g.id);
-      let ok = false;
       try {
         const method = isEdit ? 'PATCH' : 'POST';
         const url = isEdit ? `/api/guidelines/${g.id}` : '/api/guidelines';
@@ -513,26 +508,21 @@
         });
         if (res.ok) {
           await Data.fetchGuidelinesFromApi();
-          ok = true;
+          return true;
         }
       } catch (e) {}
-      if (!ok) {
-        const idx = DB.guidelines.findIndex(x => x.id === g.id);
-        if (idx >= 0) DB.guidelines[idx] = g;
-        else DB.guidelines.push(g);
-        persist();
-      }
-      return ok;
+      return false;
     },
     async deleteGuideline(id) {
-      let ok = false;
       try {
         const res = await fetch(`/api/guidelines/${id}`, { method: 'DELETE' });
-        ok = res.ok;
+        if (res.ok) {
+          DB.guidelines = DB.guidelines.filter(x => x.id !== id);
+          persist();
+          return true;
+        }
       } catch (e) {}
-      if (ok) DB.guidelines = DB.guidelines.filter(x => x.id !== id);
-      persist();
-      return ok;
+      return false;
     },
     saveAnnouncement(a) {
       DB.announcements.unshift(a);
@@ -558,18 +548,25 @@
       } catch (e) { return false; }
     },
     async saveMember(m) {
-      const idx = DB.members.findIndex(x => x.id === m.id);
-      if (idx >= 0) DB.members[idx] = m;
-      else DB.members.push(m);
-      persist();
-
-      // Uložení stavu služby a členů přes backend, aby to viděli všichni
-      // (server ověří, jestli smí přihlášený uživatel tato pole měnit).
-      await Data.saveMemberApi(m);
+      const ok = await Data.saveMemberApi(m);
+      if (ok) {
+        const idx = DB.members.findIndex(x => x.id === m.id);
+        if (idx >= 0) DB.members[idx] = m;
+        else DB.members.push(m);
+        persist();
+      }
+      return ok;
     },
-    deleteMember(id) {
-      DB.members = DB.members.filter(x => x.id !== id);
-      persist();
+    async deleteMember(id) {
+      try {
+        const res = await fetch(`/api/members/${id}`, { method: 'DELETE' });
+        if (res.ok) {
+          DB.members = DB.members.filter(x => x.id !== id);
+          persist();
+          return true;
+        }
+      } catch (e) {}
+      return false;
     },
     syncMembers(discordMembers) {
       if (!discordMembers || !discordMembers.length) return;
@@ -1429,25 +1426,30 @@
       renderLogin();
     }
     if (act === 'toggle-duty') {
-      let u = Data.member(state.user.id) || state.user;
+      // Pracujeme na kopii, ne na přímé referenci z DB.members - lokální
+      // stav smí odrážet přepnutí služby, až server potvrdí uložení.
+      const u = { ...(Data.member(state.user.id) || state.user) };
       u.onDuty = !u.onDuty;
       if (u.onDuty) {
         u.dutyStart = Date.now();
-        toast('Nastoupil jsi do služby.');
       } else {
         if (u.dutyStart) {
           const diff = Math.floor((Date.now() - u.dutyStart) / 1000);
           const durMin = Math.floor(diff / 60);
           const durSec = diff % 60;
           const dutyRecordStr = `${durMin}m ${durSec}s (${new Date().toLocaleDateString('cs-CZ')})`;
-          if (!u.dutiesHistory) u.dutiesHistory = [];
+          u.dutiesHistory = u.dutiesHistory ? [...u.dutiesHistory] : [];
           u.dutiesHistory.unshift(dutyRecordStr);
           u.dutyStart = null;
         }
-        toast('Služba ukončena a uložena na profil.');
       }
-      await Data.saveMember(u);
-      await syncDutyToDiscord();
+      const dutyOk = await Data.saveMember(u);
+      if (dutyOk) {
+        toast(u.onDuty ? 'Nastoupil jsi do služby.' : 'Služba ukončena a uložena na profil.');
+        await syncDutyToDiscord();
+      } else {
+        toast('Změnu stavu služby se nepodařilo uložit na server.', true);
+      }
       renderApp();
     }
     if (act === 'toggle-guideline-expand') {
@@ -1504,9 +1506,9 @@
       if (m) openMemberModal(m);
     }
     if (act === 'confirm-delete-member') {
-      openConfirmModal('Odebrat člena', 'Opravdu chcete tohoto člena odebrat?', () => {
-        Data.deleteMember(el.dataset.id);
-        toast('Člen odebrán.');
+      openConfirmModal('Odebrat člena', 'Opravdu chcete tohoto člena odebrat?', async () => {
+        const ok = await Data.deleteMember(el.dataset.id);
+        toast(ok ? 'Člen odebrán.' : 'Člena se nepodařilo odebrat na serveru.', !ok);
         renderApp();
       });
     }
@@ -1514,11 +1516,12 @@
       const mId = el.dataset.memberId;
       const dIdx = parseInt(el.dataset.dutyIdx, 10);
       openConfirmModal('Smazat záznam', 'Opravdu smazat tento záznam služby?', async () => {
-        const m = Data.member(mId);
-        if (m && m.dutiesHistory) {
+        const existing = Data.member(mId);
+        if (existing && existing.dutiesHistory) {
+          const m = { ...existing, dutiesHistory: [...existing.dutiesHistory] };
           m.dutiesHistory.splice(dIdx, 1);
-          await Data.saveMember(m);
-          toast('Záznam služby smazán.');
+          const ok = await Data.saveMember(m);
+          toast(ok ? 'Záznam služby smazán.' : 'Záznam se nepodařilo smazat na serveru.', !ok);
           renderApp();
         }
       });
@@ -1527,11 +1530,12 @@
       const mId = el.dataset.memberId;
       const incId = el.dataset.incId;
       openConfirmModal('Smazat prémii', 'Opravdu chcete tuto prémii smazat?', async () => {
-        const m = Data.member(mId);
-        if (m && m.weeklyBonuses) {
+        const existing = Data.member(mId);
+        if (existing && existing.weeklyBonuses) {
+          const m = { ...existing, weeklyBonuses: { ...existing.weeklyBonuses } };
           delete m.weeklyBonuses[incId];
-          await Data.saveMember(m);
-          toast('Prémie smazána.');
+          const ok = await Data.saveMember(m);
+          toast(ok ? 'Prémie smazána.' : 'Prémii se nepodařilo smazat na serveru.', !ok);
           renderApp();
         }
       });
@@ -1617,9 +1621,9 @@
         dutiesHistory: existing ? (existing.dutiesHistory || []) : [],
         weeklyBonuses: existing ? (existing.weeklyBonuses || {}) : {}
       };
-      await Data.saveMember(m);
+      const mOk = await Data.saveMember(m);
       closeModal();
-      toast('Člen uložen.');
+      toast(mOk ? 'Člen uložen.' : 'Člena se nepodařilo uložit na server.', !mOk);
       renderApp();
     }
     if (act === 'approve-inc') {
